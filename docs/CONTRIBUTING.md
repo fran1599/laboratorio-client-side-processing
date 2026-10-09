@@ -8,7 +8,7 @@
 4. Ejecutar en localhost, preferentemente en servidor estático local para evitar restricciones de `file://`.
 5. Probar navegador/hardware previstos, tamaño de archivos, permisos, consumo y errores.
 6. Documentar evidencia, limitaciones y tráfico externo observado.
-7. Si hay demo estática, generar los archivos en `site/experimentos/<slug>/` con rutas relativas y registrar el enlace en `site/experiments.json`.
+7. Si hay demo estática, generar los archivos en `experimentos/<slug>/` con rutas relativas y registrar el enlace en `experiments.json`.
 8. Abrir pull request; describir pruebas ejecutadas y posibles riesgos. Integrar a `main` solo después de revisar.
 
 ## Convenciones

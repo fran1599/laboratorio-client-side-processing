@@ -6,9 +6,9 @@ Publicar un catálogo de pruebas independientes de procesamiento client-side. No
 
 ## Capas
 
-1. **Catálogo** (`site/`): HTML/CSS/JS sin framework, índice navegable de experimentos.
+1. **Catálogo** (`raíz del repositorio/`): HTML/CSS/JS sin framework, índice navegable de experimentos.
 2. **Experimentos fuente** (`experiments/<slug>/`): cada carpeta es autónoma. Puede usar cualquier herramienta de desarrollo.
-3. **Demo publicada** (`site/experimentos/<slug>/`): opcional; solamente archivos estáticos resultantes de una compilación o copia revisada.
+3. **Demo publicada** (`experimentos/<slug>/`): opcional; solamente archivos estáticos resultantes de una compilación o copia revisada.
 4. **Documentación** (`docs/`): decisiones transversales; no imponer dependencias a las pruebas.
 
 ## Contratos de aislamiento

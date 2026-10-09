@@ -8,18 +8,18 @@ Exploraciones reproducibles de tecnologías que procesan información **en el na
 
 ## Organización
 
-- `site/`: catálogo público, independiente de la tecnología de cada experimento.
+- `raíz del repositorio/`: catálogo público, independiente de la tecnología de cada experimento.
 - `experiments/<slug>/`: código fuente autónomo, pruebas y documentación de cada experimento.
 - `docs/`: arquitectura, método de validación y normas de trabajo.
 - `templates/`: plantilla para iniciar nuevas pruebas.
-- `.github/workflows/`: publicación del catálogo mediante GitHub Actions.
+- Publicación desde `main` mediante GitHub Pages, sin workflow de despliegue.
 
 ## Empezar
 
 1. Leer [arquitectura](docs/ARCHITECTURE.md) y [guía de trabajo](docs/CONTRIBUTING.md).
 2. Crear una rama `experiment/<slug>`, una carpeta `experiments/<slug>/` y completar su README.
 3. Ejecutar y validar localmente. Registrar el resultado en su ficha.
-4. Para publicar la demo en GitHub Pages, copiar/compilar exclusivamente archivos estáticos públicos a `site/experimentos/<slug>/` y añadir una entrada a `site/experiments.json`.
+4. Para publicar la demo en GitHub Pages, copiar/compilar exclusivamente archivos estáticos públicos a `experimentos/<slug>/` y añadir una entrada a `experiments.json`.
 5. Abrir un pull request; no incorporar resultados sin verificarlos.
 
 ## Primer experimento previsto
@@ -28,7 +28,7 @@ Exploraciones reproducibles de tecnologías que procesan información **en el na
 
 ## Publicación
 
-Workflow `deploy-pages.yml`: despliega el contenido de `site/` cuando se actualiza `main` (o mediante ejecución manual). Configurar una vez en **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+GitHub Pages publica directamente desde la rama `main`, carpeta `/(root)`. Configurar una vez en **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: main → Folder: /(root)**.
 
 Sitio previsto: https://fran1599.github.io/laboratorio-client-side-processing/
 

@@ -1,7 +1,35 @@
 # Laboratorio de capacidades client-side
 
-Laboratorio público para evaluar capacidades de procesamiento ejecutadas **en el navegador**, sin backend de procesamiento propio.
+Exploraciones reproducibles de tecnologías que procesan información **en el navegador**, sin backend propio para el procesamiento.
 
-> Estado: inicialización de la estructura. El laboratorio no garantiza que todos los experimentos funcionen sin conexión ni que todas las APIs sean privadas: cada experimento debe demostrarlo.
+**Alcance:** HTML, CSS, JavaScript, WebAssembly, WebGPU, APIs del navegador y modelos descargados que se ejecuten en el dispositivo. GitHub Pages publica el sitio; no ejecuta un servidor de aplicaciones.
 
-Consulta `docs/CONTRIBUTING.md` y `docs/ARCHITECTURE.md` para las reglas de trabajo cuando se integre la estructura inicial.
+**Regla esencial:** «se abre en el navegador» no equivale a «procesa localmente». Cada prueba debe documentar solicitudes de red, dependencias externas, permisos, disponibilidad offline y tratamiento de datos.
+
+## Organización
+
+- `site/`: catálogo público, independiente de la tecnología de cada experimento.
+- `experiments/<slug>/`: código fuente autónomo, pruebas y documentación de cada experimento.
+- `docs/`: arquitectura, método de validación y normas de trabajo.
+- `templates/`: plantilla para iniciar nuevas pruebas.
+- `.github/workflows/`: publicación del catálogo mediante GitHub Actions.
+
+## Empezar
+
+1. Leer [arquitectura](docs/ARCHITECTURE.md) y [guía de trabajo](docs/CONTRIBUTING.md).
+2. Crear una rama `experiment/<slug>`, una carpeta `experiments/<slug>/` y completar su README.
+3. Ejecutar y validar localmente. Registrar el resultado en su ficha.
+4. Para publicar la demo en GitHub Pages, copiar/compilar exclusivamente archivos estáticos públicos a `site/experimentos/<slug>/` y añadir una entrada a `site/experiments.json`.
+5. Abrir un pull request; no incorporar resultados sin verificarlos.
+
+## Primer experimento previsto
+
+**Voz ↔ texto**: comparar reconocimiento de voz y síntesis de habla con tecnologías del navegador e inferencia realmente local. Está registrado como **planeado**, sin afirmar capacidades todavía verificadas.
+
+## Publicación
+
+Workflow `deploy-pages.yml`: despliega el contenido de `site/` cuando se actualiza `main` (o mediante ejecución manual). Configurar una vez en **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+Sitio previsto: https://fran1599.github.io/laboratorio-client-side-processing/
+
+Proyecto experimental: sin garantía de compatibilidad, confidencialidad ni funcionamiento offline hasta validar cada implementación.

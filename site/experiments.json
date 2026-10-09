@@ -1,0 +1,10 @@
+[
+  {
+    "slug": "voz-texto",
+    "title": "Voz y texto",
+    "description": "Exploración de reconocimiento de voz y síntesis de habla desde el navegador; tecnologías y privacidad pendientes de validar.",
+    "status": "planned",
+    "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/voz-texto",
+    "demo": null
+  }
+]

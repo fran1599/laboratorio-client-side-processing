@@ -1,0 +1,20 @@
+# Dependencias, entornos y artefactos locales
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.log
+.cache/
+dist/
+build/
+coverage/
+# Modelos/archivos binarios grandes: versionar solo si existe necesidad y licencia verificada
+*.onnx
+*.gguf
+*.safetensors

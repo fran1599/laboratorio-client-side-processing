@@ -6,5 +6,13 @@
     "status": "planned",
     "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/voz-texto",
     "demo": null
+  },
+  {
+    "slug": "distrito-luz",
+    "title": "Distrito Luz — videojuego 2D",
+    "description": "Experimento de Canvas 2D en navegador con controles móviles, enemigos y tres modos de rendimiento; mediciones en hardware real pendientes.",
+    "status": "limited",
+    "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/distrito-luz",
+    "demo": "./experimentos/distrito-luz/"
   }
 ]

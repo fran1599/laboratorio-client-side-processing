@@ -2,6 +2,14 @@
 
 **Estado:** planned. Primera línea de experimentación del laboratorio.
 
+> [← Índice de experimentos](../../README.md#índice-de-experimentos) · [Arquitectura](../../docs/ARCHITECTURE.md) · [Guía de trabajo](../../docs/CONTRIBUTING.md)
+
+## Índice de esta prueba
+
+- [Preguntas](#preguntas)
+- [Subpruebas previstas](#subpruebas-previstas)
+- [Antes de implementar](#antes-de-implementar)
+
 ## Preguntas
 
 - ¿Qué alternativas permiten voz a texto con inferencia **realmente local**?

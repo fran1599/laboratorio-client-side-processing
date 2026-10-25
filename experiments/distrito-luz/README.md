@@ -6,6 +6,19 @@
 - **Hipótesis:** bajar la resolución interna, precalcular el escenario y limitar la frecuencia de dibujado reduce la carga de trabajo en celulares.
 - **Seguimiento:** [issue #4](https://github.com/fran1599/laboratorio-client-side-processing/issues/4)
 
+> [← Índice de experimentos](../../README.md#índice-de-experimentos) · [Demo publicada](https://fran1599.github.io/laboratorio-client-side-processing/experimentos/distrito-luz/) · [Arquitectura](../../docs/ARCHITECTURE.md)
+
+## Índice de esta prueba
+
+- [Alcance y funcionamiento](#alcance-y-funcionamiento)
+- [Tecnología y dependencias](#tecnología-y-dependencias)
+- [Requisitos](#requisitos)
+- [Ejecución](#ejecución)
+- [Modos de rendimiento](#modos-de-rendimiento)
+- [Método de prueba y evidencia](#método-de-prueba-y-evidencia)
+- [Privacidad y conectividad](#privacidad-y-conectividad)
+- [Decisión](#decisión)
+
 ## Alcance y funcionamiento
 
 Juego arcade 2D de vista superior. Recolectar ocho núcleos, evitar o enfrentar drones y alcanzar el portal. Incluye controles de teclado, mouse y táctiles; enemigos con lógica local, colisiones, vida, puntuación, sonidos opcionales, pausa y modos de calidad.

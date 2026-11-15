@@ -1,7 +1,7 @@
 import * as TTS from 'https://cdn.jsdelivr.net/npm/@jtsage/piper-tts-web@1.2.0/+esm';
 
 let session = null;
-let activeVoice = null;
+let activeSessionKey = null;
 
 function serializeError(error){
   if(error instanceof Error){
@@ -19,24 +19,42 @@ function serializeError(error){
   };
 }
 
-async function ensureSession(voiceId){
-  if(session && activeVoice===voiceId) return session;
-  if(TTS.TtsSession && '_instance' in TTS.TtsSession) TTS.TtsSession._instance=null;
+async function ensureSession(voiceId,prosody=null){
+  const sessionKey=voiceId+'|'+JSON.stringify(prosody||{});
+  if(session && activeSessionKey===sessionKey)return session;
+  if(TTS.TtsSession && '_instance' in TTS.TtsSession)TTS.TtsSession._instance=null;
   session=null;
-  activeVoice=voiceId;
+  activeSessionKey=sessionKey;
+
+  const customLoader=async url=>{
+    if(!prosody||!url.endsWith('.onnx.json'))return null;
+    const response=await fetch(url);
+    if(!response.ok)throw new Error('No se pudo cargar configuración de voz: '+response.status);
+    const config=await response.json();
+    config.inference=config.inference||{};
+    if(Number.isFinite(prosody.lengthScale))config.inference.length_scale=prosody.lengthScale;
+    if(Number.isFinite(prosody.noiseScale))config.inference.noise_scale=prosody.noiseScale;
+    if(Number.isFinite(prosody.noiseW))config.inference.noise_w=prosody.noiseW;
+    self.postMessage({
+      type:'engine-log',
+      message:'Applied prosody override: '+JSON.stringify(config.inference)
+    });
+    return new Blob([JSON.stringify(config)],{type:'application/json'});
+  };
+
   const fileReader=new TTS.CachedFileReader({
+    customLoader,
     progress:p=>self.postMessage({type:'download-progress',progress:p})
   });
-  self.postMessage({type:'engine-state',state:'initializing',voiceId});
+  self.postMessage({type:'engine-state',state:'initializing',voiceId,prosody});
   session=await TTS.TtsSession.create({
     voiceId,
     fileReader,
     logger:message=>self.postMessage({type:'engine-log',message})
   });
-  self.postMessage({type:'engine-state',state:'ready',voiceId});
+  self.postMessage({type:'engine-state',state:'ready',voiceId,prosody});
   return session;
 }
-
 self.onmessage=async(event)=>{
   const data=event.data||{};
   try{
@@ -52,7 +70,7 @@ self.onmessage=async(event)=>{
         const voiceId=voices[i];
         self.postMessage({type:'compare-start',jobId,index:i+1,total:voices.length,voiceId});
         try{
-          const current=await ensureSession(voiceId);
+          const current=await ensureSession(voiceId,null);
           const started=performance.now();
           const wav=await current.predict(text);
           self.postMessage({
@@ -72,8 +90,8 @@ self.onmessage=async(event)=>{
 
     if(data.type!=='synth') return;
 
-    const {jobId,voiceId,chunks=[]}=data;
-    const current=await ensureSession(voiceId);
+    const {jobId,voiceId,chunks=[],prosody=null}=data;
+    const current=await ensureSession(voiceId,prosody);
     for(let i=0;i<chunks.length;i++){
       const chunk=chunks[i];
       const text=typeof chunk==='string'?chunk:chunk.text;

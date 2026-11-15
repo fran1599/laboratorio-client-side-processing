@@ -1,4 +1,4 @@
-# Prototipo 0.1.4
+# Prototipo 0.1.5
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -61,3 +61,15 @@ La generación sigue siendo secuencial: no se ejecutan varias inferencias simult
 El panel informa progreso total por caracteres, fragmento actual, tiempo transcurrido, tiempo restante estimado a partir del rendimiento observado, audio ya generado y buffer disponible.
 
 La barra del fragmento actual es indeterminada porque Piper/ONNX no expone progreso interno de una inferencia individual. La estimación se recalibra al completar cada fragmento.
+
+
+## Lectura natural
+
+Desde 0.1.5 el TTS permite comparar dos modos:
+
+- **Natural:** prepara una copia del texto exclusivamente para síntesis. Elimina marcas visuales de Markdown, evita leer URLs completas, mantiene puntuación útil, conserva separados títulos y elementos de listas y agrega silencios explícitos entre bloques semánticos.
+- **Literal:** conserva el texto introducido y mantiene el comportamiento técnico anterior.
+
+La interfaz permite inspeccionar la versión preparada antes de sintetizar. El texto original no se sobrescribe.
+
+La puntuación dentro de cada fragmento sigue siendo interpretada por Piper. Los silencios agregados por la aplicación actúan principalmente en límites de párrafos, títulos/listas y cortes técnicos. Esta etapa no modifica todavía los parámetros internos de prosodia del modelo.

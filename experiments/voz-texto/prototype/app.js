@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.1', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
+const run = { version:'0.1.2', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -33,10 +33,13 @@ function renderMetrics(id,obj) {
     box.append(key,val); el.append(box);
   }
 }
-function download(name,text,type='text/plain'){
-  const url=URL.createObjectURL(new Blob([text],{type}));
+function downloadBlob(name,blob){
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+function download(name,text,type='text/plain'){
+  downloadBlob(name,new Blob([text],{type}));
 }
 
 async function gpuInfo(){
@@ -170,11 +173,11 @@ $('copy').onclick=()=>navigator.clipboard.writeText($('transcript').value);
 $('txt').onclick=()=>download('transcripcion.txt',$('transcript').value);
 
 // Piper TTS
-let piper=null, audioUrl=null;
+let piper=null, audioUrl=null, currentWav=null, activeTtsVoice=null;
 async function getPiper(){
   if(piper)return piper;
   $('tts-status').textContent='Cargando biblioteca Piper…';
-  piper=await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/+esm');
+  piper=await import('https://cdn.jsdelivr.net/npm/@jtsage/piper-tts-web@1.2.0/+esm');
   return piper;
 }
 function normalizeVoices(data){
@@ -222,14 +225,66 @@ $('voices').onclick=async()=>{
   }catch(error){$('tts-status').textContent='Error Piper: '+error.message;log('tts-library-error',{error:String(error)})}
   finally{$('voices').disabled=false}
 };
-$('rate').oninput=()=>{
-  const r=Number($('rate').value); $('rate-label').textContent=r.toFixed(1)+'×'; $('tts-audio').playbackRate=r;
+function formatTime(seconds){
+  if(!Number.isFinite(seconds)) return '0:00';
+  const mins=Math.floor(seconds/60);
+  const secs=Math.floor(seconds%60).toString().padStart(2,'0');
+  return mins+':'+secs;
+}
+function syncPlayer(){
+  const audio=$('tts-audio');
+  const duration=Number.isFinite(audio.duration)?audio.duration:0;
+  $('player-time').textContent=formatTime(audio.currentTime)+' / '+formatTime(duration);
+  $('seek').value=duration?Math.round((audio.currentTime/duration)*1000):0;
+}
+function applyPlaybackSettings(){
+  const audio=$('tts-audio');
+  const rate=Number($('rate').value);
+  audio.playbackRate=rate;
+  if('preservesPitch' in audio) audio.preservesPitch=$('preserve-pitch').checked;
+}
+$('rate').onchange=()=>{
+  applyPlaybackSettings();
+  log('tts-playback-rate',{rate:Number($('rate').value)});
 };
+$('preserve-pitch').onchange=()=>{
+  applyPlaybackSettings();
+  log('tts-preserve-pitch',{enabled:$('preserve-pitch').checked});
+};
+$('playpause').onclick=async()=>{
+  const audio=$('tts-audio');
+  if(!audio.src)return;
+  if(audio.paused) await audio.play();
+  else audio.pause();
+};
+$('restart').onclick=async()=>{
+  const audio=$('tts-audio');
+  if(!audio.src)return;
+  audio.currentTime=0;
+  await audio.play();
+};
+$('seek').oninput=()=>{
+  const audio=$('tts-audio');
+  if(Number.isFinite(audio.duration)) audio.currentTime=(Number($('seek').value)/1000)*audio.duration;
+};
+$('download-wav').onclick=()=>{
+  if(currentWav) downloadBlob('piper-'+Date.now()+'.wav',currentWav);
+};
+$('tts-audio').addEventListener('loadedmetadata',()=>{applyPlaybackSettings();syncPlayer()});
+$('tts-audio').addEventListener('timeupdate',syncPlayer);
+$('tts-audio').addEventListener('play',()=>{$('playpause').textContent='Pausar'});
+$('tts-audio').addEventListener('pause',()=>{$('playpause').textContent='Reproducir'});
+$('tts-audio').addEventListener('ended',()=>{$('playpause').textContent='Reproducir';syncPlayer()});
 $('synth').onclick=async()=>{
   $('synth').disabled=true; $('tts-progress').value=0;
   try{
     const lib=await getPiper(), voiceId=$('voice').value, text=$('tts-text').value.trim();
     if(!voiceId||!text) throw new Error('Falta voz o texto.');
+    if(activeTtsVoice && activeTtsVoice!==voiceId && lib.TtsSession && '_instance' in lib.TtsSession){
+      lib.TtsSession._instance=null;
+      log('tts-session-reset',{from:activeTtsVoice,to:voiceId});
+    }
+    activeTtsVoice=voiceId;
     const heapBefore=performance.memory?.usedJSHeapSize??null;
     $('tts-status').textContent='Sintetizando '+voiceId+'…';
     const start=performance.now();
@@ -237,13 +292,16 @@ $('synth').onclick=async()=>{
       if(p?.total&&Number.isFinite(p.loaded)) $('tts-progress').value=Math.round(p.loaded*100/p.total);
     });
     const result={
-      at:new Date().toISOString(),voiceId,inferenceMs:Math.round(performance.now()-start),
+      at:new Date().toISOString(),voiceId,library:'@jtsage/piper-tts-web@1.2.0',
+      inferenceMs:Math.round(performance.now()-start),
       textChars:text.length,wavBytes:wav.size??null,playbackRate:Number($('rate').value),
       jsHeapBefore:heapBefore,jsHeapAfter:performance.memory?.usedJSHeapSize??null
     };
+    currentWav=wav;
     if(audioUrl)URL.revokeObjectURL(audioUrl); audioUrl=URL.createObjectURL(wav);
-    const audio=$('tts-audio'); audio.src=audioUrl; audio.playbackRate=result.playbackRate; audio.hidden=false;
-    $('tts-progress').value=100; $('tts-status').textContent='Audio generado localmente.';
+    const audio=$('tts-audio'); audio.src=audioUrl; applyPlaybackSettings();
+    $('player').hidden=false; $('seek').value=0; $('playpause').textContent='Reproducir';
+    $('tts-progress').value=100; $('tts-status').textContent='Audio generado. Usá los controles de reproducción debajo.';
     run.tts.push(result); renderMetrics('tts-metrics',result); log('tts-complete',result);
   }catch(error){$('tts-status').textContent='Error TTS: '+error.message;log('tts-error',{error:String(error)})}
   finally{$('synth').disabled=false}

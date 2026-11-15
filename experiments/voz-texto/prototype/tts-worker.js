@@ -52,20 +52,24 @@ self.onmessage=async(event)=>{
     const current=await ensureSession(voiceId);
     for(let i=0;i<chunks.length;i++){
       const chunk=chunks[i];
+      const text=typeof chunk==='string'?chunk:chunk.text;
+      const pauseAfterMs=typeof chunk==='object'?(chunk.pauseAfterMs||0):0;
+      const boundary=typeof chunk==='object'?(chunk.boundary||null):null;
       self.postMessage({
-        type:'chunk-start',jobId,index:i+1,total:chunks.length,chars:chunk.length
+        type:'chunk-start',jobId,index:i+1,total:chunks.length,chars:text.length,pauseAfterMs,boundary
       });
       const started=performance.now();
       try{
-        const wav=await current.predict(chunk);
+        const wav=await current.predict(text);
         self.postMessage({
           type:'chunk-complete',jobId,index:i+1,total:chunks.length,
-          chars:chunk.length,inferenceMs:Math.round(performance.now()-started),wav
+          chars:text.length,inferenceMs:Math.round(performance.now()-started),
+          pauseAfterMs,boundary,wav
         });
       }catch(error){
         self.postMessage({
           type:'chunk-error',jobId,index:i+1,total:chunks.length,
-          chars:chunk.length,error:serializeError(error)
+          chars:text.length,pauseAfterMs,boundary,error:serializeError(error)
         });
         throw error;
       }

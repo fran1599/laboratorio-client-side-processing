@@ -21,7 +21,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.2
+## Prototipo 0.1.3
 
 Código: [`prototype/`](prototype/).
 
@@ -124,6 +124,14 @@ La síntesis todavía no llegó a ejecutarse. ONNX Runtime 1.18 intentó cargar 
 **Interpretación:** el bloqueo ocurre en la carga del runtime WASM remoto, antes de la inferencia; no es todavía evidencia de falta de RAM/CPU ni de incompatibilidad del modelo de voz.
 
 **Corrección 0.1.2:** migrar el prototipo a `@jtsage/piper-tts-web@1.2.0`, que usa ONNX Runtime 1.22.0 y jsDelivr para el runtime, y agregar un reproductor independiente del motor con play/pausa, reinicio, seek, velocidad 0,5×–2×, conservación de tono y descarga WAV.
+
+### Tercera ejecución real — 2026-11-15 — versión 0.1.2
+
+El runtime anterior dejó de fallar en la carga explícita del módulo WASM, pero dos intentos de síntesis devolvieron excepciones numéricas sin mensaje (`138099976` y `79461120`). Este formato es compatible con excepciones de bajo nivel propagadas desde código compilado con Emscripten/WASM, donde un entero puede representar una referencia interna en memoria; por sí solo no identifica la causa.
+
+El intento se hizo con una respuesta de longitud considerable, por lo que el texto largo queda como variable plausible pero todavía no probada. Como referencia de implementación, AnythingLLM segmenta Piper en bloques de hasta 400 caracteres para mantener cada predicción acotada.
+
+**Corrección 0.1.3:** segmentar el texto por oraciones y palabras hasta ~400 caracteres, sintetizar secuencialmente, registrar cada fragmento y unir los WAV localmente en un único audio. El logging ahora conserva tipo, mensaje, stack/cause cuando existan y el índice exacto del fragmento que falla.
 
 Los resultados deben distinguir observaciones de hipótesis y no deben incluir grabaciones ni textos sensibles.
 

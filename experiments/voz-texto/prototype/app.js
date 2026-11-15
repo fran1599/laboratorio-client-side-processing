@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.2', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
+const run = { version:'0.1.3', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -40,6 +40,99 @@ function downloadBlob(name,blob){
 }
 function download(name,text,type='text/plain'){
   downloadBlob(name,new Blob([text],{type}));
+}
+function serializeError(error){
+  if(error instanceof Error){
+    return {
+      type:error.name||'Error',
+      message:error.message||String(error),
+      stack:error.stack||null,
+      cause:error.cause?serializeError(error.cause):null
+    };
+  }
+  return {
+    type:typeof error,
+    value:String(error),
+    constructor:error?.constructor?.name||null
+  };
+}
+function splitTextIntoChunks(text,maxLength=400){
+  const trimmed=String(text||'').trim();
+  if(!trimmed)return[];
+  if(trimmed.length<=maxLength)return[trimmed];
+  const sentences=trimmed.match(/[^.!?…\n]+[.!?…]*\s*/g)??[trimmed];
+  const chunks=[];
+  let current='';
+  const pushCurrent=()=>{
+    const value=current.trim();
+    if(value)chunks.push(value);
+    current='';
+  };
+  for(const sentence of sentences){
+    if((current+sentence).length>maxLength)pushCurrent();
+    if(sentence.length>maxLength){
+      let piece='';
+      for(const word of sentence.split(/\s+/)){
+        const next=(piece+' '+word).trim();
+        if(next.length>maxLength){
+          if(piece.trim())chunks.push(piece.trim());
+          piece=word;
+        }else piece=next;
+      }
+      current=piece;
+    }else current+=sentence;
+  }
+  pushCurrent();
+  return chunks;
+}
+async function mergeWavBlobs(blobs){
+  if(blobs.length===1)return blobs[0];
+  const ctx=new AudioContext();
+  try{
+    const decoded=[];
+    for(const blob of blobs){
+      decoded.push(await ctx.decodeAudioData((await blob.arrayBuffer()).slice(0)));
+    }
+    const sampleRate=decoded[0].sampleRate;
+    const channels=decoded[0].numberOfChannels;
+    if(decoded.some(b=>b.sampleRate!==sampleRate||b.numberOfChannels!==channels)){
+      throw new Error('Los fragmentos de audio no comparten formato.');
+    }
+    const totalFrames=decoded.reduce((sum,b)=>sum+b.length,0);
+    const merged=Array.from({length:channels},()=>new Float32Array(totalFrames));
+    let offset=0;
+    for(const buffer of decoded){
+      for(let c=0;c<channels;c++)merged[c].set(buffer.getChannelData(c),offset);
+      offset+=buffer.length;
+    }
+    return new Blob([encodeWav(merged,sampleRate)],{type:'audio/wav'});
+  }finally{
+    await ctx.close();
+  }
+}
+function encodeWav(channels,sampleRate){
+  const channelCount=channels.length;
+  const frames=channels[0].length;
+  const bytesPerSample=2;
+  const dataSize=frames*channelCount*bytesPerSample;
+  const buffer=new ArrayBuffer(44+dataSize);
+  const view=new DataView(buffer);
+  const write=(offset,text)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i))};
+  write(0,'RIFF'); view.setUint32(4,36+dataSize,true); write(8,'WAVE');
+  write(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
+  view.setUint16(22,channelCount,true); view.setUint32(24,sampleRate,true);
+  view.setUint32(28,sampleRate*channelCount*bytesPerSample,true);
+  view.setUint16(32,channelCount*bytesPerSample,true); view.setUint16(34,16,true);
+  write(36,'data'); view.setUint32(40,dataSize,true);
+  let p=44;
+  for(let i=0;i<frames;i++){
+    for(let c=0;c<channelCount;c++){
+      const sample=Math.max(-1,Math.min(1,channels[c][i]));
+      view.setInt16(p,sample<0?sample*0x8000:sample*0x7fff,true);
+      p+=2;
+    }
+  }
+  return buffer;
 }
 
 async function gpuInfo(){
@@ -173,7 +266,7 @@ $('copy').onclick=()=>navigator.clipboard.writeText($('transcript').value);
 $('txt').onclick=()=>download('transcripcion.txt',$('transcript').value);
 
 // Piper TTS
-let piper=null, audioUrl=null, currentWav=null, activeTtsVoice=null;
+let piper=null, audioUrl=null, currentWav=null, activeTtsVoice=null, ttsSession=null;
 async function getPiper(){
   if(piper)return piper;
   $('tts-status').textContent='Cargando biblioteca Piper…';
@@ -280,20 +373,58 @@ $('synth').onclick=async()=>{
   try{
     const lib=await getPiper(), voiceId=$('voice').value, text=$('tts-text').value.trim();
     if(!voiceId||!text) throw new Error('Falta voz o texto.');
-    if(activeTtsVoice && activeTtsVoice!==voiceId && lib.TtsSession && '_instance' in lib.TtsSession){
-      lib.TtsSession._instance=null;
-      log('tts-session-reset',{from:activeTtsVoice,to:voiceId});
+    const chunks=splitTextIntoChunks(text,400);
+    log('tts-chunks',{count:chunks.length,lengths:chunks.map(x=>x.length),textChars:text.length});
+
+    if(activeTtsVoice!==voiceId || !ttsSession){
+      if(lib.TtsSession && '_instance' in lib.TtsSession)lib.TtsSession._instance=null;
+      ttsSession=null;
+      activeTtsVoice=voiceId;
+      const fileReader=new lib.CachedFileReader({
+        progress:p=>{
+          if(p?.total&&Number.isFinite(p.loaded)){
+            const percent=Math.round(p.loaded*100/p.total);
+            $('tts-progress').value=Math.max(0,Math.min(100,percent));
+            $('tts-status').textContent='Descargando recursos de voz… '+percent+'%';
+          }
+        }
+      });
+      $('tts-status').textContent='Inicializando motor para '+voiceId+'…';
+      ttsSession=await lib.TtsSession.create({
+        voiceId,
+        fileReader,
+        logger:message=>log('tts-engine-log',{message})
+      });
     }
-    activeTtsVoice=voiceId;
+
     const heapBefore=performance.memory?.usedJSHeapSize??null;
-    $('tts-status').textContent='Sintetizando '+voiceId+'…';
-    const start=performance.now();
-    const wav=await lib.predict({text,voiceId},p=>{
-      if(p?.total&&Number.isFinite(p.loaded)) $('tts-progress').value=Math.round(p.loaded*100/p.total);
-    });
+    const started=performance.now();
+    const wavParts=[];
+    for(let i=0;i<chunks.length;i++){
+      $('tts-status').textContent='Sintetizando fragmento '+(i+1)+' de '+chunks.length+'…';
+      $('tts-progress').value=Math.round((i/chunks.length)*100);
+      const chunkStart=performance.now();
+      try{
+        const wav=await ttsSession.predict(chunks[i]);
+        wavParts.push(wav);
+        log('tts-chunk-complete',{
+          index:i+1,total:chunks.length,chars:chunks[i].length,
+          inferenceMs:Math.round(performance.now()-chunkStart),wavBytes:wav.size??null
+        });
+      }catch(error){
+        log('tts-chunk-error',{
+          index:i+1,total:chunks.length,chars:chunks[i].length,
+          error:serializeError(error)
+        });
+        throw error;
+      }
+    }
+    $('tts-status').textContent='Uniendo '+wavParts.length+' fragmentos de audio…';
+    const wav=await mergeWavBlobs(wavParts);
+    const inferenceMs=performance.now()-started;
     const result={
       at:new Date().toISOString(),voiceId,library:'@jtsage/piper-tts-web@1.2.0',
-      inferenceMs:Math.round(performance.now()-start),
+      inferenceMs:Math.round(inferenceMs),chunks:chunks.length,
       textChars:text.length,wavBytes:wav.size??null,playbackRate:Number($('rate').value),
       jsHeapBefore:heapBefore,jsHeapAfter:performance.memory?.usedJSHeapSize??null
     };
@@ -303,8 +434,12 @@ $('synth').onclick=async()=>{
     $('player').hidden=false; $('seek').value=0; $('playpause').textContent='Reproducir';
     $('tts-progress').value=100; $('tts-status').textContent='Audio generado. Usá los controles de reproducción debajo.';
     run.tts.push(result); renderMetrics('tts-metrics',result); log('tts-complete',result);
-  }catch(error){$('tts-status').textContent='Error TTS: '+error.message;log('tts-error',{error:String(error)})}
-  finally{$('synth').disabled=false}
+  }catch(error){
+    const detail=serializeError(error);
+    const readable=detail.message||detail.value||String(error);
+    $('tts-status').textContent='Error TTS: '+readable;
+    log('tts-error',{error:detail});
+  }finally{$('synth').disabled=false}
 };
 
 $('export').onclick=()=>{

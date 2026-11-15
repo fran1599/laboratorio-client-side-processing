@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.0', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
+const run = { version:'0.1.1', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -177,21 +177,48 @@ async function getPiper(){
   piper=await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/+esm');
   return piper;
 }
+function normalizeVoices(data){
+  if(Array.isArray(data)){
+    return data.map((voice,index)=>{
+      if(typeof voice==='string') return {key:voice,name:voice};
+      if(voice&&typeof voice==='object') return {...voice,key:voice.key||voice.id||voice.voiceId||null};
+      return {key:null,name:'voice-'+index};
+    }).filter(v=>v.key);
+  }
+  if(data&&typeof data==='object'){
+    return Object.entries(data).map(([key,voice])=>{
+      if(typeof voice==='string') return {key,name:voice};
+      return {key,...(voice||{})};
+    }).filter(v=>v.key);
+  }
+  return [];
+}
+function voiceLabel(v){
+  const language=v.language?.name||v.language?.code||v.language||v.locale||null;
+  const name=v.name||v.speaker||v.key;
+  const quality=v.quality||v.model_quality||null;
+  return [name,language,quality].filter(Boolean).join(' · ');
+}
 $('voices').onclick=async()=>{
   $('voices').disabled=true;
   try{
     const lib=await getPiper(); $('tts-status').textContent='Consultando catálogo…';
     const data=await lib.voices();
-    const all=Array.isArray(data)?data:Object.keys(data||{});
-    const es=all.filter(v=>/(^es_|spanish|daniela)/i.test(String(v)));
+    const all=normalizeVoices(data);
+    const es=all.filter(v=>/(^es_|spanish|español|daniela|argentin)/i.test([v.key,v.name,v.language?.name,v.language?.code,v.language,v.locale].filter(Boolean).join(' ')));
     const list=es.length?es:all;
     const select=$('voice'); select.replaceChildren();
-    for(const v of list){const o=document.createElement('option');o.value=String(v);o.textContent=String(v);select.append(o)}
-    const preferred=list.find(v=>/es_AR.*daniela|daniela/i.test(String(v)));
-    if(preferred)select.value=preferred;
+    for(const v of list){
+      const o=document.createElement('option');
+      o.value=v.key;
+      o.textContent=voiceLabel(v);
+      select.append(o);
+    }
+    const preferred=list.find(v=>/es_AR.*daniela|daniela/i.test([v.key,v.name].filter(Boolean).join(' ')));
+    if(preferred)select.value=preferred.key;
     $('synth').disabled=!list.length;
     $('tts-status').textContent=list.length?list.length+' voces candidatas.':'No se encontraron voces.';
-    log('tts-voices',{count:list.length,selected:select.value||null});
+    log('tts-voices',{count:list.length,selected:select.value||null,sampleKeys:list.slice(0,5).map(v=>v.key)});
   }catch(error){$('tts-status').textContent='Error Piper: '+error.message;log('tts-library-error',{error:String(error)})}
   finally{$('voices').disabled=false}
 };

@@ -91,6 +91,7 @@ function stripMarkdownForSpeech(text){
       out.push('');
       continue;
     }
+    const isListItem=/^[-*+]\s+/.test(line)||/^\d+[.)]\s+/.test(line)||/^\[?[ xX]\]\s+/.test(line);
     line=line
       .replace(/^>\s?/,'')
       .replace(/^[-*+]\s+/,'')
@@ -98,6 +99,7 @@ function stripMarkdownForSpeech(text){
     const numbered=line.match(/^(\d+)[.)]\s+(.+)$/);
     if(numbered) line=numbered[1]+'. '+numbered[2];
     out.push(line);
+    if(isListItem)out.push('');
   }
   return out.join('\n')
     .replace(/[ \t]+/g,' ')

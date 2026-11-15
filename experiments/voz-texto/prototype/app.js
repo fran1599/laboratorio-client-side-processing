@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.3', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
+const run = { version:'0.1.4', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -85,56 +85,58 @@ function splitTextIntoChunks(text,maxLength=400){
   pushCurrent();
   return chunks;
 }
+function readWavHeader(buffer){
+  if(buffer.byteLength<44) throw new Error('WAV incompleto.');
+  const view=new DataView(buffer);
+  const tag=offset=>String.fromCharCode(
+    view.getUint8(offset),view.getUint8(offset+1),view.getUint8(offset+2),view.getUint8(offset+3)
+  );
+  if(tag(0)!=='RIFF'||tag(8)!=='WAVE') throw new Error('Formato WAV no reconocido.');
+  return {
+    audioFormat:view.getUint16(20,true),
+    channels:view.getUint16(22,true),
+    sampleRate:view.getUint32(24,true),
+    byteRate:view.getUint32(28,true),
+    blockAlign:view.getUint16(32,true),
+    bitsPerSample:view.getUint16(34,true),
+    dataSize:view.getUint32(40,true)
+  };
+}
+async function wavDuration(blob){
+  const header=readWavHeader(await blob.slice(0,44).arrayBuffer());
+  return header.byteRate?Math.min(header.dataSize,Math.max(0,blob.size-44))/header.byteRate:0;
+}
 async function mergeWavBlobs(blobs){
   if(blobs.length===1)return blobs[0];
-  const ctx=new AudioContext();
-  try{
-    const decoded=[];
-    for(const blob of blobs){
-      decoded.push(await ctx.decodeAudioData((await blob.arrayBuffer()).slice(0)));
-    }
-    const sampleRate=decoded[0].sampleRate;
-    const channels=decoded[0].numberOfChannels;
-    if(decoded.some(b=>b.sampleRate!==sampleRate||b.numberOfChannels!==channels)){
-      throw new Error('Los fragmentos de audio no comparten formato.');
-    }
-    const totalFrames=decoded.reduce((sum,b)=>sum+b.length,0);
-    const merged=Array.from({length:channels},()=>new Float32Array(totalFrames));
-    let offset=0;
-    for(const buffer of decoded){
-      for(let c=0;c<channels;c++)merged[c].set(buffer.getChannelData(c),offset);
-      offset+=buffer.length;
-    }
-    return new Blob([encodeWav(merged,sampleRate)],{type:'audio/wav'});
-  }finally{
-    await ctx.close();
+  const headers=[];
+  let totalData=0;
+  for(const blob of blobs){
+    const raw=await blob.slice(0,44).arrayBuffer();
+    const header=readWavHeader(raw);
+    const dataSize=Math.min(header.dataSize,Math.max(0,blob.size-44));
+    headers.push({raw,header,dataSize});
+    totalData+=dataSize;
   }
-}
-function encodeWav(channels,sampleRate){
-  const channelCount=channels.length;
-  const frames=channels[0].length;
-  const bytesPerSample=2;
-  const dataSize=frames*channelCount*bytesPerSample;
-  const buffer=new ArrayBuffer(44+dataSize);
-  const view=new DataView(buffer);
-  const write=(offset,text)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i))};
-  write(0,'RIFF'); view.setUint32(4,36+dataSize,true); write(8,'WAVE');
-  write(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
-  view.setUint16(22,channelCount,true); view.setUint32(24,sampleRate,true);
-  view.setUint32(28,sampleRate*channelCount*bytesPerSample,true);
-  view.setUint16(32,channelCount*bytesPerSample,true); view.setUint16(34,16,true);
-  write(36,'data'); view.setUint32(40,dataSize,true);
-  let p=44;
-  for(let i=0;i<frames;i++){
-    for(let c=0;c<channelCount;c++){
-      const sample=Math.max(-1,Math.min(1,channels[c][i]));
-      view.setInt16(p,sample<0?sample*0x8000:sample*0x7fff,true);
-      p+=2;
+  const base=headers[0].header;
+  for(const {header} of headers){
+    if(header.audioFormat!==base.audioFormat||header.channels!==base.channels||
+       header.sampleRate!==base.sampleRate||header.bitsPerSample!==base.bitsPerSample){
+      throw new Error('Los fragmentos WAV no comparten el mismo formato.');
     }
   }
-  return buffer;
+  const out=new Uint8Array(44+totalData);
+  out.set(new Uint8Array(headers[0].raw),0);
+  const view=new DataView(out.buffer);
+  view.setUint32(4,36+totalData,true);
+  view.setUint32(40,totalData,true);
+  let offset=44;
+  for(let i=0;i<blobs.length;i++){
+    const payload=new Uint8Array(await blobs[i].slice(44,44+headers[i].dataSize).arrayBuffer());
+    out.set(payload,offset);
+    offset+=payload.length;
+  }
+  return new Blob([out],{type:'audio/wav'});
 }
-
 async function gpuInfo(){
   if(!navigator.gpu) return {supported:false};
   try{
@@ -265,181 +267,409 @@ $('transcribe').onclick=async()=>{
 $('copy').onclick=()=>navigator.clipboard.writeText($('transcript').value);
 $('txt').onclick=()=>download('transcripcion.txt',$('transcript').value);
 
-// Piper TTS
-let piper=null, audioUrl=null, currentWav=null, activeTtsVoice=null, ttsSession=null;
-async function getPiper(){
-  if(piper)return piper;
-  $('tts-status').textContent='Cargando biblioteca Piper…';
-  piper=await import('https://cdn.jsdelivr.net/npm/@jtsage/piper-tts-web@1.2.0/+esm');
-  return piper;
+// Piper TTS — generación en Worker + reproducción progresiva
+let ttsWorker=null;
+let ttsJob=null;
+let ttsTimer=null;
+let chunkProcessingQueue=Promise.resolve();
+let currentWav=null;
+let streamItems=[];
+let streamIndex=-1;
+let playRequested=false;
+let waitingForChunk=false;
+
+function getTtsWorker(){
+  if(ttsWorker)return ttsWorker;
+  ttsWorker=new Worker('./tts-worker.js',{type:'module'});
+  ttsWorker.onmessage=event=>{
+    handleTtsWorkerMessage(event.data).catch(error=>{
+      const detail=serializeError(error);
+      log('tts-ui-error',{error:detail});
+      $('tts-status').textContent='Error TTS: '+(detail.message||detail.value||String(error));
+    });
+  };
+  ttsWorker.onerror=event=>{
+    log('tts-worker-crash',{message:event.message||'Worker error'});
+    $('tts-status').textContent='Error del Worker TTS: '+(event.message||'desconocido');
+    finishTtsJob(false);
+  };
+  return ttsWorker;
 }
 function normalizeVoices(data){
   if(Array.isArray(data)){
     return data.map((voice,index)=>{
-      if(typeof voice==='string') return {key:voice,name:voice};
-      if(voice&&typeof voice==='object') return {...voice,key:voice.key||voice.id||voice.voiceId||null};
-      return {key:null,name:'voice-'+index};
+      if(typeof voice==='string')return{key:voice,name:voice};
+      if(voice&&typeof voice==='object')return{...voice,key:voice.key||voice.id||voice.voiceId||null};
+      return{key:null,name:'voice-'+index};
     }).filter(v=>v.key);
   }
   if(data&&typeof data==='object'){
     return Object.entries(data).map(([key,voice])=>{
-      if(typeof voice==='string') return {key,name:voice};
-      return {key,...(voice||{})};
+      if(typeof voice==='string')return{key,name:voice};
+      return{key,...(voice||{})};
     }).filter(v=>v.key);
   }
-  return [];
+  return[];
 }
 function voiceLabel(v){
-  const language=v.language?.name||v.language?.code||v.language||v.locale||null;
+  const language=v.language?.name_native||v.language?.name_english||v.language?.code||v.language||v.locale||null;
   const name=v.name||v.speaker||v.key;
   const quality=v.quality||v.model_quality||null;
-  return [name,language,quality].filter(Boolean).join(' · ');
+  return[name,language,quality].filter(Boolean).join(' · ');
 }
-$('voices').onclick=async()=>{
-  $('voices').disabled=true;
-  try{
-    const lib=await getPiper(); $('tts-status').textContent='Consultando catálogo…';
-    const data=await lib.voices();
-    const all=normalizeVoices(data);
-    const es=all.filter(v=>/(^es_|spanish|español|daniela|argentin)/i.test([v.key,v.name,v.language?.name,v.language?.code,v.language,v.locale].filter(Boolean).join(' ')));
-    const list=es.length?es:all;
-    const select=$('voice'); select.replaceChildren();
-    for(const v of list){
-      const o=document.createElement('option');
-      o.value=v.key;
-      o.textContent=voiceLabel(v);
-      select.append(o);
-    }
-    const preferred=list.find(v=>/es_AR.*daniela|daniela/i.test([v.key,v.name].filter(Boolean).join(' ')));
-    if(preferred)select.value=preferred.key;
-    $('synth').disabled=!list.length;
-    $('tts-status').textContent=list.length?list.length+' voces candidatas.':'No se encontraron voces.';
-    log('tts-voices',{count:list.length,selected:select.value||null,sampleKeys:list.slice(0,5).map(v=>v.key)});
-  }catch(error){$('tts-status').textContent='Error Piper: '+error.message;log('tts-library-error',{error:String(error)})}
-  finally{$('voices').disabled=false}
-};
-function formatTime(seconds){
-  if(!Number.isFinite(seconds)) return '0:00';
-  const mins=Math.floor(seconds/60);
-  const secs=Math.floor(seconds%60).toString().padStart(2,'0');
-  return mins+':'+secs;
+function formatDuration(seconds){
+  if(!Number.isFinite(seconds)||seconds<0)return'—';
+  const rounded=Math.max(0,Math.round(seconds));
+  const h=Math.floor(rounded/3600);
+  const m=Math.floor((rounded%3600)/60);
+  const s=rounded%60;
+  if(h)return h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  return m+':'+String(s).padStart(2,'0');
 }
-function syncPlayer(){
+function generatedDuration(){
+  return streamItems.reduce((sum,item)=>sum+item.duration,0);
+}
+function playbackPosition(){
+  if(streamIndex<0)return 0;
+  let base=0;
+  for(let i=0;i<streamIndex;i++)base+=streamItems[i]?.duration||0;
+  return base+($('tts-audio').currentTime||0);
+}
+function estimateTotalAudioSeconds(){
+  if(!ttsJob||!ttsJob.completedChars||!ttsJob.generatedSeconds)return null;
+  return (ttsJob.generatedSeconds/ttsJob.completedChars)*ttsJob.totalChars;
+}
+function updateTtsProgressUI(){
+  if(!ttsJob)return;
+  const elapsed=(performance.now()-ttsJob.startedAt)/1000;
+  const pct=ttsJob.totalChars?Math.min(100,(ttsJob.completedChars/ttsJob.totalChars)*100):0;
+  const msPerChar=ttsJob.completedChars?ttsJob.completedInferenceMs/ttsJob.completedChars:null;
+  const remainingChars=Math.max(0,ttsJob.totalChars-ttsJob.completedChars);
+  const eta=msPerChar?remainingChars*msPerChar/1000:null;
+  const estimatedAudio=estimateTotalAudioSeconds();
+  const buffered=Math.max(0,ttsJob.generatedSeconds-playbackPosition());
+
+  $('tts-progress').value=pct;
+  $('tts-overall').textContent=pct.toFixed(1)+'%';
+  $('tts-fragment').textContent=ttsJob.completedChunks+' / '+ttsJob.totalChunks;
+  $('tts-elapsed').textContent=formatDuration(elapsed);
+  $('tts-eta').textContent=eta==null?'Calculando…':formatDuration(eta);
+  $('tts-generated').textContent=
+    formatDuration(ttsJob.generatedSeconds)+(estimatedAudio?' / ~'+formatDuration(estimatedAudio):'');
+  $('tts-buffer').textContent=formatDuration(buffered);
+  if(ttsJob.currentChunkStartedAt){
+    const current=(performance.now()-ttsJob.currentChunkStartedAt)/1000;
+    $('tts-current').textContent='Fragmento '+ttsJob.currentChunkIndex+' de '+ttsJob.totalChunks+
+      ' · '+formatDuration(current)+' en proceso';
+  }
+  syncPlayer();
+}
+function startTtsTimer(){
+  clearInterval(ttsTimer);
+  updateTtsProgressUI();
+  ttsTimer=setInterval(updateTtsProgressUI,500);
+}
+function finishTtsJob(success){
+  clearInterval(ttsTimer);
+  ttsTimer=null;
+  if(ttsJob){
+    ttsJob.currentChunkStartedAt=null;
+    ttsJob.state=success?'complete':'error';
+  }
+  $('tts-chunk-progress').value=success?100:0;
+  $('synth').disabled=false;
+  updateTtsProgressUI();
+}
+function resetStream(){
   const audio=$('tts-audio');
-  const duration=Number.isFinite(audio.duration)?audio.duration:0;
-  $('player-time').textContent=formatTime(audio.currentTime)+' / '+formatTime(duration);
-  $('seek').value=duration?Math.round((audio.currentTime/duration)*1000):0;
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  for(const item of streamItems)URL.revokeObjectURL(item.url);
+  streamItems=[];
+  streamIndex=-1;
+  playRequested=false;
+  waitingForChunk=false;
+  currentWav=null;
+  $('player').hidden=true;
+  $('download-wav').disabled=true;
+  $('seek').value=0;
+  $('player-time').textContent='0:00 / 0:00';
 }
 function applyPlaybackSettings(){
   const audio=$('tts-audio');
-  const rate=Number($('rate').value);
-  audio.playbackRate=rate;
-  if('preservesPitch' in audio) audio.preservesPitch=$('preserve-pitch').checked;
+  audio.playbackRate=Number($('rate').value);
+  if('preservesPitch'in audio)audio.preservesPitch=$('preserve-pitch').checked;
 }
+function syncPlayer(){
+  const total=generatedDuration();
+  const current=Math.min(playbackPosition(),total||0);
+  $('player-time').textContent=formatDuration(current)+' / '+formatDuration(total);
+  $('seek').value=total?Math.round((current/total)*1000):0;
+}
+function findStreamPosition(seconds){
+  let base=0;
+  for(let i=0;i<streamItems.length;i++){
+    const end=base+streamItems[i].duration;
+    if(seconds<=end||i===streamItems.length-1){
+      return{index:i,offset:Math.max(0,Math.min(streamItems[i].duration,seconds-base))};
+    }
+    base=end;
+  }
+  return{index:0,offset:0};
+}
+function loadStreamItem(index,offset=0,autoplay=playRequested){
+  const item=streamItems[index];
+  if(!item)return;
+  const audio=$('tts-audio');
+  streamIndex=index;
+  waitingForChunk=false;
+  audio.src=item.url;
+  audio.load();
+  const ready=async()=>{
+    applyPlaybackSettings();
+    try{audio.currentTime=Math.min(offset,Math.max(0,(audio.duration||offset)-0.01))}catch{}
+    syncPlayer();
+    if(autoplay){
+      try{
+        await audio.play();
+        playRequested=true;
+      }catch(error){
+        playRequested=false;
+        log('tts-autoplay-blocked',{error:serializeError(error)});
+      }
+    }
+  };
+  if(audio.readyState>=1)ready();
+  else audio.addEventListener('loadedmetadata',ready,{once:true});
+}
+async function enqueueStreamChunk(blob){
+  const duration=await wavDuration(blob);
+  const item={blob,url:URL.createObjectURL(blob),duration};
+  streamItems.push(item);
+  if(ttsJob)ttsJob.generatedSeconds+=duration;
+  $('player').hidden=false;
+  if(streamIndex<0){
+    playRequested=$('progressive-play').checked;
+    loadStreamItem(0,0,playRequested);
+  }else if(waitingForChunk&&playRequested){
+    loadStreamItem(streamIndex+1,0,true);
+  }
+  return duration;
+}
+$('tts-audio').addEventListener('timeupdate',()=>{syncPlayer();updateTtsProgressUI()});
+$('tts-audio').addEventListener('play',()=>{$('playpause').textContent='Pausar';playRequested=true});
+$('tts-audio').addEventListener('pause',()=>{$('playpause').textContent='Reproducir'});
+$('tts-audio').addEventListener('ended',()=>{
+  if(streamIndex+1<streamItems.length){
+    loadStreamItem(streamIndex+1,0,playRequested);
+  }else if(ttsJob?.state==='running'&&playRequested){
+    waitingForChunk=true;
+    $('tts-play-state').textContent='Esperando el próximo fragmento…';
+  }else{
+    playRequested=false;
+    $('playpause').textContent='Reproducir';
+    $('tts-play-state').textContent=ttsJob?.state==='complete'?'Reproducción disponible completa':'Pausado';
+  }
+});
+$('playpause').onclick=async()=>{
+  const audio=$('tts-audio');
+  if(!streamItems.length)return;
+  if(audio.paused){
+    playRequested=true;
+    if(streamIndex<0)loadStreamItem(0,0,true);
+    else{
+      try{await audio.play()}catch(error){log('tts-play-error',{error:serializeError(error)})}
+    }
+  }else{
+    playRequested=false;
+    waitingForChunk=false;
+    audio.pause();
+  }
+};
+$('restart').onclick=()=>{
+  if(!streamItems.length)return;
+  playRequested=true;
+  loadStreamItem(0,0,true);
+};
+$('seek').oninput=()=>{
+  const total=generatedDuration();
+  if(!total||!streamItems.length)return;
+  const target=(Number($('seek').value)/1000)*total;
+  const pos=findStreamPosition(target);
+  loadStreamItem(pos.index,pos.offset,playRequested);
+};
 $('rate').onchange=()=>{
   applyPlaybackSettings();
   log('tts-playback-rate',{rate:Number($('rate').value)});
+  updateTtsProgressUI();
 };
 $('preserve-pitch').onchange=()=>{
   applyPlaybackSettings();
   log('tts-preserve-pitch',{enabled:$('preserve-pitch').checked});
 };
-$('playpause').onclick=async()=>{
-  const audio=$('tts-audio');
-  if(!audio.src)return;
-  if(audio.paused) await audio.play();
-  else audio.pause();
-};
-$('restart').onclick=async()=>{
-  const audio=$('tts-audio');
-  if(!audio.src)return;
-  audio.currentTime=0;
-  await audio.play();
-};
-$('seek').oninput=()=>{
-  const audio=$('tts-audio');
-  if(Number.isFinite(audio.duration)) audio.currentTime=(Number($('seek').value)/1000)*audio.duration;
-};
 $('download-wav').onclick=()=>{
-  if(currentWav) downloadBlob('piper-'+Date.now()+'.wav',currentWav);
+  if(currentWav)downloadBlob('piper-'+Date.now()+'.wav',currentWav);
 };
-$('tts-audio').addEventListener('loadedmetadata',()=>{applyPlaybackSettings();syncPlayer()});
-$('tts-audio').addEventListener('timeupdate',syncPlayer);
-$('tts-audio').addEventListener('play',()=>{$('playpause').textContent='Pausar'});
-$('tts-audio').addEventListener('pause',()=>{$('playpause').textContent='Reproducir'});
-$('tts-audio').addEventListener('ended',()=>{$('playpause').textContent='Reproducir';syncPlayer()});
-$('synth').onclick=async()=>{
-  $('synth').disabled=true; $('tts-progress').value=0;
-  try{
-    const lib=await getPiper(), voiceId=$('voice').value, text=$('tts-text').value.trim();
-    if(!voiceId||!text) throw new Error('Falta voz o texto.');
-    const chunks=splitTextIntoChunks(text,400);
-    log('tts-chunks',{count:chunks.length,lengths:chunks.map(x=>x.length),textChars:text.length});
 
-    if(activeTtsVoice!==voiceId || !ttsSession){
-      if(lib.TtsSession && '_instance' in lib.TtsSession)lib.TtsSession._instance=null;
-      ttsSession=null;
-      activeTtsVoice=voiceId;
-      const fileReader=new lib.CachedFileReader({
-        progress:p=>{
-          if(p?.total&&Number.isFinite(p.loaded)){
-            const percent=Math.round(p.loaded*100/p.total);
-            $('tts-progress').value=Math.max(0,Math.min(100,percent));
-            $('tts-status').textContent='Descargando recursos de voz… '+percent+'%';
-          }
-        }
-      });
-      $('tts-status').textContent='Inicializando motor para '+voiceId+'…';
-      ttsSession=await lib.TtsSession.create({
-        voiceId,
-        fileReader,
-        logger:message=>log('tts-engine-log',{message})
-      });
-    }
+$('voices').onclick=()=>{
+  $('voices').disabled=true;
+  $('tts-status').textContent='Cargando catálogo de voces…';
+  getTtsWorker().postMessage({type:'voices'});
+};
 
-    const heapBefore=performance.memory?.usedJSHeapSize??null;
-    const started=performance.now();
-    const wavParts=[];
-    for(let i=0;i<chunks.length;i++){
-      $('tts-status').textContent='Sintetizando fragmento '+(i+1)+' de '+chunks.length+'…';
-      $('tts-progress').value=Math.round((i/chunks.length)*100);
-      const chunkStart=performance.now();
-      try{
-        const wav=await ttsSession.predict(chunks[i]);
-        wavParts.push(wav);
-        log('tts-chunk-complete',{
-          index:i+1,total:chunks.length,chars:chunks[i].length,
-          inferenceMs:Math.round(performance.now()-chunkStart),wavBytes:wav.size??null
-        });
-      }catch(error){
-        log('tts-chunk-error',{
-          index:i+1,total:chunks.length,chars:chunks[i].length,
-          error:serializeError(error)
-        });
-        throw error;
-      }
+async function handleTtsWorkerMessage(data){
+  if(data.type==='worker-ready'){
+    log('tts-worker-ready');
+    return;
+  }
+  if(data.type==='voices'){
+    const all=normalizeVoices(data.voices);
+    const es=all.filter(v=>/(^es_|spanish|español|daniela|argentin)/i.test(
+      [v.key,v.name,v.language?.name_native,v.language?.name_english,v.language?.code,v.language,v.locale]
+        .filter(Boolean).join(' ')
+    ));
+    const list=es.length?es:all;
+    const select=$('voice');select.replaceChildren();
+    for(const v of list){
+      const option=document.createElement('option');
+      option.value=v.key;
+      option.textContent=voiceLabel(v);
+      select.append(option);
     }
-    $('tts-status').textContent='Uniendo '+wavParts.length+' fragmentos de audio…';
-    const wav=await mergeWavBlobs(wavParts);
-    const inferenceMs=performance.now()-started;
+    const preferred=list.find(v=>/es_AR.*daniela|daniela/i.test([v.key,v.name].filter(Boolean).join(' ')));
+    if(preferred)select.value=preferred.key;
+    $('synth').disabled=!list.length;
+    $('voices').disabled=false;
+    $('tts-status').textContent=list.length?list.length+' voces candidatas.':'No se encontraron voces.';
+    log('tts-voices',{count:list.length,selected:select.value||null,sampleKeys:list.slice(0,5).map(v=>v.key)});
+    return;
+  }
+  if(data.type==='engine-log'){
+    log('tts-engine-log',{message:data.message});
+    return;
+  }
+  if(data.type==='engine-state'){
+    $('tts-stage').textContent=data.state==='ready'?'Motor listo':'Inicializando motor';
+    $('tts-status').textContent=data.state==='ready'?'Motor listo. Comienza la síntesis…':'Inicializando voz '+data.voiceId+'…';
+    return;
+  }
+  if(data.type==='download-progress'){
+    const p=data.progress||{};
+    if(p.total&&Number.isFinite(p.loaded)){
+      const percent=Math.round(p.loaded*100/p.total);
+      $('tts-stage').textContent='Descargando recursos de voz';
+      $('tts-current').textContent=percent+'% de '+bytes(p.total);
+      $('tts-chunk-progress').value=percent;
+    }
+    return;
+  }
+  if(!ttsJob||data.jobId!==ttsJob.id)return;
+  if(data.type==='chunk-start'){
+    ttsJob.currentChunkIndex=data.index;
+    ttsJob.currentChunkStartedAt=performance.now();
+    $('tts-stage').textContent='Generando audio';
+    $('tts-status').textContent='Sintetizando fragmento '+data.index+' de '+data.total+'…';
+    $('tts-chunk-progress').removeAttribute('value');
+    updateTtsProgressUI();
+    return;
+  }
+  if(data.type==='chunk-complete'){
+    chunkProcessingQueue=chunkProcessingQueue.then(async()=>{
+      const duration=await enqueueStreamChunk(data.wav);
+      ttsJob.completedChunks=data.index;
+      ttsJob.completedChars+=data.chars;
+      ttsJob.completedInferenceMs+=data.inferenceMs;
+      ttsJob.currentChunkStartedAt=null;
+      if(!ttsJob.firstAudioReadyMs)ttsJob.firstAudioReadyMs=Math.round(performance.now()-ttsJob.startedAt);
+      ttsJob.wavParts.push(data.wav);
+      log('tts-chunk-complete',{
+        index:data.index,total:data.total,chars:data.chars,inferenceMs:data.inferenceMs,
+        wavBytes:data.wav.size??null,audioSeconds:Number(duration.toFixed(3))
+      });
+      updateTtsProgressUI();
+    });
+    return;
+  }
+  if(data.type==='chunk-error'){
+    log('tts-chunk-error',{index:data.index,total:data.total,chars:data.chars,error:data.error});
+    return;
+  }
+  if(data.type==='worker-error'){
+    log('tts-error',{error:data.error});
+    $('tts-status').textContent='Error TTS: '+(data.error?.message||data.error?.value||'desconocido');
+    $('tts-stage').textContent='Error';
+    finishTtsJob(false);
+    return;
+  }
+  if(data.type==='synth-complete'){
+    await chunkProcessingQueue;
+    $('tts-stage').textContent='Preparando archivo final';
+    $('tts-status').textContent='Uniendo '+ttsJob.wavParts.length+' fragmentos en un único WAV…';
+    $('tts-chunk-progress').removeAttribute('value');
+    currentWav=await mergeWavBlobs(ttsJob.wavParts);
+    const wallClockMs=Math.round(performance.now()-ttsJob.startedAt);
+    const audioSeconds=generatedDuration();
     const result={
-      at:new Date().toISOString(),voiceId,library:'@jtsage/piper-tts-web@1.2.0',
-      inferenceMs:Math.round(inferenceMs),chunks:chunks.length,
-      textChars:text.length,wavBytes:wav.size??null,playbackRate:Number($('rate').value),
-      jsHeapBefore:heapBefore,jsHeapAfter:performance.memory?.usedJSHeapSize??null
+      at:new Date().toISOString(),
+      voiceId:ttsJob.voiceId,
+      library:'@jtsage/piper-tts-web@1.2.0',
+      worker:true,
+      wallClockMs,
+      inferenceMs:Math.round(ttsJob.completedInferenceMs),
+      firstAudioReadyMs:ttsJob.firstAudioReadyMs,
+      chunks:ttsJob.totalChunks,
+      textChars:ttsJob.totalChars,
+      wavBytes:currentWav.size,
+      audioSeconds:Number(audioSeconds.toFixed(2)),
+      realtimeFactor:Number((ttsJob.completedInferenceMs/1000/audioSeconds).toFixed(3)),
+      progressivePlayback:$('progressive-play').checked,
+      jsHeapBefore:ttsJob.heapBefore,
+      jsHeapAfter:performance.memory?.usedJSHeapSize??null
     };
-    currentWav=wav;
-    if(audioUrl)URL.revokeObjectURL(audioUrl); audioUrl=URL.createObjectURL(wav);
-    const audio=$('tts-audio'); audio.src=audioUrl; applyPlaybackSettings();
-    $('player').hidden=false; $('seek').value=0; $('playpause').textContent='Reproducir';
-    $('tts-progress').value=100; $('tts-status').textContent='Audio generado. Usá los controles de reproducción debajo.';
-    run.tts.push(result); renderMetrics('tts-metrics',result); log('tts-complete',result);
-  }catch(error){
-    const detail=serializeError(error);
-    const readable=detail.message||detail.value||String(error);
-    $('tts-status').textContent='Error TTS: '+readable;
-    log('tts-error',{error:detail});
-  }finally{$('synth').disabled=false}
+    run.tts.push(result);
+    renderMetrics('tts-metrics',result);
+    log('tts-complete',result);
+    $('download-wav').disabled=false;
+    $('tts-stage').textContent='Completado';
+    $('tts-status').textContent='Conversión terminada. El audio completo está disponible.';
+    $('tts-play-state').textContent='Audio completo generado';
+    finishTtsJob(true);
+  }
+}
+
+$('synth').onclick=()=>{
+  const voiceId=$('voice').value;
+  const text=$('tts-text').value.trim();
+  if(!voiceId||!text)return;
+  const chunks=splitTextIntoChunks(text,400);
+  resetStream();
+  $('synth').disabled=true;
+  $('tts-job').hidden=false;
+  $('tts-progress').value=0;
+  $('tts-chunk-progress').removeAttribute('value');
+  $('tts-stage').textContent='Preparando';
+  $('tts-current').textContent='Esperando al motor…';
+  ttsJob={
+    id:'tts-'+Date.now(),
+    state:'running',
+    voiceId,
+    totalChunks:chunks.length,
+    totalChars:text.length,
+    completedChunks:0,
+    completedChars:0,
+    completedInferenceMs:0,
+    generatedSeconds:0,
+    startedAt:performance.now(),
+    currentChunkStartedAt:null,
+    currentChunkIndex:0,
+    firstAudioReadyMs:null,
+    wavParts:[],
+    heapBefore:performance.memory?.usedJSHeapSize??null
+  };
+  log('tts-chunks',{count:chunks.length,lengths:chunks.map(x=>x.length),textChars:text.length});
+  startTtsTimer();
+  getTtsWorker().postMessage({type:'synth',jobId:ttsJob.id,voiceId,chunks});
 };
 
 $('export').onclick=()=>{

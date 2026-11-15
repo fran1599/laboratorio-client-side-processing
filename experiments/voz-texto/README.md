@@ -21,7 +21,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.5
+## Prototipo 0.1.6
 
 Código: [`prototype/`](prototype/).
 
@@ -163,6 +163,14 @@ Se agrega una etapa explícita entre el texto original y Piper:
 El modo Natural limpia marcas visuales de Markdown, reemplaza URLs por una referencia genérica, conserva la puntuación significativa, separa títulos y elementos de listas y agrega pausas explícitas entre bloques. La preparación es observable desde la interfaz y no modifica el texto original.
 
 Se mantiene un modo Literal para comparación A/B. Esta versión no altera todavía `length_scale`, `noise_scale` ni `noise_w`; primero se busca medir cuánto mejora la percepción actuando únicamente sobre preparación textual, segmentación y pausas.
+
+### Evolución 0.1.6 — selección controlada de voz base
+
+La mejora perceptiva de 0.1.5 fue reportada como leve. Por lo tanto, antes de modificar parámetros de prosodia se incorpora una comparación A/B de voces sobre una muestra fija.
+
+La prueba mantiene constante el texto preparado y cambia únicamente el modelo de voz. Se genera de manera secuencial para no sumar carga simultánea de inferencia. La persona puede valorar cada resultado en naturalidad, claridad y timbre, además de seleccionar una favorita.
+
+El JSON incorpora `voiceComparisons` con las voces probadas, tiempos de inferencia y evaluación subjetiva. Esta evidencia se usará para reducir el espacio de búsqueda a una o dos voces antes de probar perfiles de pausas y parámetros internos del modelo.
 
 Los resultados deben distinguir observaciones de hipótesis y no deben incluir grabaciones ni textos sensibles.
 

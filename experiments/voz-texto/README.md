@@ -21,7 +21,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.6
+## Prototipo 0.1.7
 
 Código: [`prototype/`](prototype/).
 
@@ -171,6 +171,25 @@ La mejora perceptiva de 0.1.5 fue reportada como leve. Por lo tanto, antes de mo
 La prueba mantiene constante el texto preparado y cambia únicamente el modelo de voz. Se genera de manera secuencial para no sumar carga simultánea de inferencia. La persona puede valorar cada resultado en naturalidad, claridad y timbre, además de seleccionar una favorita.
 
 El JSON incorpora `voiceComparisons` con las voces probadas, tiempos de inferencia y evaluación subjetiva. Esta evidencia se usará para reducir el espacio de búsqueda a una o dos voces antes de probar perfiles de pausas y parámetros internos del modelo.
+
+### Resultado de comparación y evolución 0.1.7 — Claude
+
+La segunda comparación A/B completó cuatro voces sobre una muestra de 481 caracteres. `es_MX-claude-high` fue marcada como favorita, con naturalidad 2/5, claridad 5/5 y timbre 5/5. Esto orienta la siguiente ronda a conservar el timbre de Claude y trabajar específicamente ritmo y prosodia.
+
+La 0.1.7 incorpora:
+
+- Claude high como voz prioritaria para la prueba;
+- segmentación por oración para poder insertar pausas explícitas según puntuación;
+- tres perfiles de pausa: Compacto, Natural+ y Marcado;
+- en Natural+, pausa aproximada de 380 ms después de punto, 560 ms después de pregunta, 460 ms después de exclamación y 760 ms entre párrafos;
+- tres perfiles de prosodia: original de la voz, Natural A y Natural B;
+- los perfiles modifican en memoria el JSON de configuración cargado por Piper, sin alterar el archivo ONNX;
+- Natural A: `length_scale=1.03`, `noise_scale=0.75`, `noise_w=0.72`;
+- Natural B: `length_scale=1.06`, `noise_scale=0.85`, `noise_w=0.65`.
+
+Los presets son hipótesis experimentales moderadas alrededor de los valores originales de Claude (`1.0 / 0.667 / 0.8`). No se consideran todavía configuraciones recomendadas.
+
+La arquitectura del override es reutilizable con otras voces Piper, pero cada modelo deberá calibrarse de forma independiente porque los mismos parámetros pueden producir resultados distintos.
 
 Los resultados deben distinguir observaciones de hipótesis y no deben incluir grabaciones ni textos sensibles.
 

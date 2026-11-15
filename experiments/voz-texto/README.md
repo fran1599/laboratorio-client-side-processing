@@ -94,7 +94,26 @@ Métrica principal STT:
 
 ## Evidencia y resultados
 
-Todavía no hay mediciones de hardware real registradas. El código pasó revisión estática de sintaxis, pero la inferencia en navegador queda pendiente de validación.
+### Primera ejecución real — 2026-11-15
+
+Ambiente informado por el navegador:
+
+- Windows 10/11 x64, Chrome 157;
+- contexto seguro disponible;
+- 4 hilos lógicos informados;
+- 4 GB de RAM aproximada informada por `navigator.deviceMemory`;
+- WebGPU disponible;
+- WebAssembly disponible;
+- micrófono y Cache API disponibles;
+- límite de heap JavaScript informado: ~4,1 GiB.
+
+La prueba llegó correctamente al catálogo de Piper y obtuvo 124 voces, pero la versión 0.1.0 no pudo sintetizar audio. El JSON mostró que el selector estaba enviando `"[object Object]"` como `voiceId`, seguido por `Entry not found`.
+
+**Diagnóstico:** error del prototipo, no evidencia de incompatibilidad del hardware ni de Piper. `voices()` devuelve objetos y Piper requiere la propiedad `key` como `voiceId`.
+
+**Corrección 0.1.1:** normalizar el catálogo y usar `voice.key` como identificador. Pendiente repetir TTS con la nueva versión.
+
+El JSON recibido no contiene ejecuciones STT, por lo que todavía no hay mediciones reales de Whisper para este equipo.
 
 Los resultados deben distinguir observaciones de hipótesis y no deben incluir grabaciones ni textos sensibles.
 

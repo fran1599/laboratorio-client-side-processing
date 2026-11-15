@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.4', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
+const run = { version:'0.1.5', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -56,34 +56,156 @@ function serializeError(error){
     constructor:error?.constructor?.name||null
   };
 }
-function splitTextIntoChunks(text,maxLength=400){
-  const trimmed=String(text||'').trim();
-  if(!trimmed)return[];
-  if(trimmed.length<=maxLength)return[trimmed];
-  const sentences=trimmed.match(/[^.!?…\n]+[.!?…]*\s*/g)??[trimmed];
+function stripMarkdownForSpeech(text){
+  let value=String(text||'').replace(/\r\n?/g,'\n');
+  value=value.replace(/\x60{3}[^\n]*\n([\s\S]*?)\x60{3}/g,(_,code)=>{
+    const cleaned=code.replace(/^\s+|\s+$/g,'').replace(/\n+/g,'. ');
+    return '\nCódigo. '+cleaned+'. Fin del código.\n';
+  });
+  value=value
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g,'$1')
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/)?[^)]*\)/g,'$1')
+    .replace(/https?:\/\/\S+/g,' enlace ')
+    .replace(/\x60([^\x60]+)\x60/g,'$1')
+    .replace(/\*\*([^*]+)\*\*/g,'$1')
+    .replace(/__([^_]+)__/g,'$1')
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,'$1')
+    .replace(/(?<!_)_([^_]+)_(?!_)/g,'$1')
+    .replace(/~~([^~]+)~~/g,'$1')
+    .replace(/\s+↔\s+/g,' y ')
+    .replace(/\s+→\s+/g,' a ')
+    .replace(/\s+←\s+/g,' desde ')
+    .replace(/\s+×\s+/g,' por ');
+
+  const lines=value.split('\n');
+  const out=[];
+  for(const raw of lines){
+    let line=raw.trim();
+    if(!line){out.push('');continue}
+    if(/^[-*_]{3,}$/.test(line))continue;
+    const heading=line.match(/^#{1,6}\s+(.+)$/);
+    if(heading){
+      line=heading[1].trim();
+      if(!/[.!?…:]$/.test(line))line+='.';
+      out.push(line);
+      out.push('');
+      continue;
+    }
+    line=line
+      .replace(/^>\s?/,'')
+      .replace(/^[-*+]\s+/,'')
+      .replace(/^\[?[ xX]\]\s+/,'');
+    const numbered=line.match(/^(\d+)[.)]\s+(.+)$/);
+    if(numbered) line=numbered[1]+'. '+numbered[2];
+    out.push(line);
+  }
+  return out.join('\n')
+    .replace(/[ \t]+/g,' ')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
+}
+
+function splitLongSpeechUnit(text,maxLength){
+  const value=text.trim();
+  if(!value)return[];
+  if(value.length<=maxLength)return[value];
+  const pieces=[];
+  let current='';
+  const clauses=value.split(/(?<=[,;:])\s+/);
+  const source=clauses.length>1?clauses:value.split(/\s+/);
+  for(const part of source){
+    const next=(current+' '+part).trim();
+    if(next.length>maxLength){
+      if(current)pieces.push(current.trim());
+      current=part;
+    }else current=next;
+  }
+  if(current)pieces.push(current.trim());
+  return pieces;
+}
+
+function buildNaturalSpeechPlan(text,maxLength=400){
+  const prepared=stripMarkdownForSpeech(text);
+  if(!prepared)return{preparedText:'',chunks:[]};
+  const paragraphs=prepared.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  const chunks=[];
+
+  for(let p=0;p<paragraphs.length;p++){
+    const paragraph=paragraphs[p].replace(/\n+/g,' ').trim();
+    const sentences=paragraph.match(/[^.!?…]+[.!?…]+(?:["'»”)]*)|[^.!?…]+$/g)??[paragraph];
+    let current='';
+
+    const push=(pauseAfterMs=260,boundary='sentence')=>{
+      const value=current.trim();
+      if(value)chunks.push({text:value,pauseAfterMs,boundary});
+      current='';
+    };
+
+    for(let s=0;s<sentences.length;s++){
+      const sentence=sentences[s].trim();
+      if(!sentence)continue;
+      const parts=splitLongSpeechUnit(sentence,maxLength);
+      for(let i=0;i<parts.length;i++){
+        const part=parts[i];
+        const candidate=(current+' '+part).trim();
+        if(candidate.length>maxLength){
+          push(220,'sentence');
+          current=part;
+        }else current=candidate;
+
+        const isLastPart=i===parts.length-1;
+        const isLastSentence=s===sentences.length-1;
+        if(isLastPart&&isLastSentence){
+          const paragraphPause=p===paragraphs.length-1?220:560;
+          push(paragraphPause,p===paragraphs.length-1?'end':'paragraph');
+        }
+      }
+    }
+  }
+  return{preparedText:prepared,chunks};
+}
+
+function buildLiteralSpeechPlan(text,maxLength=400){
+  const prepared=String(text||'').trim();
+  if(!prepared)return{preparedText:'',chunks:[]};
+  const sentences=prepared.match(/[^.!?…\n]+[.!?…]*\s*/g)??[prepared];
   const chunks=[];
   let current='';
-  const pushCurrent=()=>{
+  const push=()=>{
     const value=current.trim();
-    if(value)chunks.push(value);
+    if(value)chunks.push({text:value,pauseAfterMs:0,boundary:'literal'});
     current='';
   };
   for(const sentence of sentences){
-    if((current+sentence).length>maxLength)pushCurrent();
-    if(sentence.length>maxLength){
-      let piece='';
-      for(const word of sentence.split(/\s+/)){
-        const next=(piece+' '+word).trim();
-        if(next.length>maxLength){
-          if(piece.trim())chunks.push(piece.trim());
-          piece=word;
-        }else piece=next;
-      }
-      current=piece;
-    }else current+=sentence;
+    const parts=splitLongSpeechUnit(sentence,maxLength);
+    for(const part of parts){
+      const next=(current+' '+part).trim();
+      if(next.length>maxLength)push();
+      current=(current+' '+part).trim();
+    }
   }
-  pushCurrent();
-  return chunks;
+  push();
+  return{preparedText:prepared,chunks};
+}
+
+function buildSpeechPlan(text,mode='natural',maxLength=400){
+  return mode==='literal'
+    ?buildLiteralSpeechPlan(text,maxLength)
+    :buildNaturalSpeechPlan(text,maxLength);
+}
+
+function refreshSpeechPreview(){
+  const text=$('tts-text')?.value??'';
+  const mode=$('reading-mode')?.value??'natural';
+  const plan=buildSpeechPlan(text,mode,400);
+  if($('prepared-text'))$('prepared-text').value=plan.preparedText;
+  if($('prep-summary')){
+    $('prep-summary').textContent=
+      (mode==='natural'?'Lectura natural':'Lectura literal')+
+      ' · '+text.length+' caracteres originales · '+plan.preparedText.length+
+      ' preparados · '+plan.chunks.length+' fragmentos';
+  }
+  return plan;
 }
 function readWavHeader(buffer){
   if(buffer.byteLength<44) throw new Error('WAV incompleto.');
@@ -105,6 +227,22 @@ function readWavHeader(buffer){
 async function wavDuration(blob){
   const header=readWavHeader(await blob.slice(0,44).arrayBuffer());
   return header.byteRate?Math.min(header.dataSize,Math.max(0,blob.size-44))/header.byteRate:0;
+}
+async function appendSilenceToWav(blob,pauseMs=0){
+  if(!pauseMs||pauseMs<=0)return blob;
+  const headerBytes=await blob.slice(0,44).arrayBuffer();
+  const header=readWavHeader(headerBytes);
+  if(header.audioFormat!==1||!header.byteRate||!header.blockAlign)return blob;
+  const dataSize=Math.min(header.dataSize,Math.max(0,blob.size-44));
+  let silenceBytes=Math.round((header.byteRate*pauseMs)/1000);
+  silenceBytes=Math.max(0,Math.ceil(silenceBytes/header.blockAlign)*header.blockAlign);
+  const out=new Uint8Array(44+dataSize+silenceBytes);
+  out.set(new Uint8Array(headerBytes),0);
+  out.set(new Uint8Array(await blob.slice(44,44+dataSize).arrayBuffer()),44);
+  const view=new DataView(out.buffer);
+  view.setUint32(4,36+dataSize+silenceBytes,true);
+  view.setUint32(40,dataSize+silenceBytes,true);
+  return new Blob([out],{type:'audio/wav'});
 }
 async function mergeWavBlobs(blobs){
   if(blobs.length===1)return blobs[0];
@@ -443,9 +581,10 @@ function loadStreamItem(index,offset=0,autoplay=playRequested){
   if(audio.readyState>=1)ready();
   else audio.addEventListener('loadedmetadata',ready,{once:true});
 }
-async function enqueueStreamChunk(blob){
-  const duration=await wavDuration(blob);
-  const item={blob,url:URL.createObjectURL(blob),duration};
+async function enqueueStreamChunk(blob,pauseAfterMs=0){
+  const withPause=await appendSilenceToWav(blob,pauseAfterMs);
+  const duration=await wavDuration(withPause);
+  const item={blob:withPause,url:URL.createObjectURL(withPause),duration,pauseAfterMs};
   streamItems.push(item);
   if(ttsJob)ttsJob.generatedSeconds+=duration;
   $('player').hidden=false;
@@ -576,16 +715,16 @@ async function handleTtsWorkerMessage(data){
   }
   if(data.type==='chunk-complete'){
     chunkProcessingQueue=chunkProcessingQueue.then(async()=>{
-      const duration=await enqueueStreamChunk(data.wav);
+      const duration=await enqueueStreamChunk(data.wav,data.pauseAfterMs||0);
       ttsJob.completedChunks=data.index;
       ttsJob.completedChars+=data.chars;
       ttsJob.completedInferenceMs+=data.inferenceMs;
       ttsJob.currentChunkStartedAt=null;
       if(!ttsJob.firstAudioReadyMs)ttsJob.firstAudioReadyMs=Math.round(performance.now()-ttsJob.startedAt);
-      ttsJob.wavParts.push(data.wav);
+      ttsJob.wavParts.push(streamItems[streamItems.length-1].blob);
       log('tts-chunk-complete',{
         index:data.index,total:data.total,chars:data.chars,inferenceMs:data.inferenceMs,
-        wavBytes:data.wav.size??null,audioSeconds:Number(duration.toFixed(3))
+        wavBytes:data.wav.size??null,audioSeconds:Number(duration.toFixed(3)),pauseAfterMs:data.pauseAfterMs||0,boundary:data.boundary||null
       });
       updateTtsProgressUI();
     });
@@ -619,7 +758,9 @@ async function handleTtsWorkerMessage(data){
       inferenceMs:Math.round(ttsJob.completedInferenceMs),
       firstAudioReadyMs:ttsJob.firstAudioReadyMs,
       chunks:ttsJob.totalChunks,
-      textChars:ttsJob.totalChars,
+      readingMode:ttsJob.readingMode,
+      textCharsOriginal:ttsJob.originalChars,
+      textCharsPrepared:ttsJob.totalChars,
       wavBytes:currentWav.size,
       audioSeconds:Number(audioSeconds.toFixed(2)),
       realtimeFactor:Number((ttsJob.completedInferenceMs/1000/audioSeconds).toFixed(3)),
@@ -638,11 +779,18 @@ async function handleTtsWorkerMessage(data){
   }
 }
 
+$('tts-text').addEventListener('input',refreshSpeechPreview);
+$('reading-mode').addEventListener('change',refreshSpeechPreview);
+refreshSpeechPreview();
+
 $('synth').onclick=()=>{
   const voiceId=$('voice').value;
   const text=$('tts-text').value.trim();
   if(!voiceId||!text)return;
-  const chunks=splitTextIntoChunks(text,400);
+  const readingMode=$('reading-mode').value;
+  const plan=buildSpeechPlan(text,readingMode,400);
+  const chunks=plan.chunks;
+  if(!chunks.length)return;
   resetStream();
   $('synth').disabled=true;
   $('tts-job').hidden=false;
@@ -655,7 +803,9 @@ $('synth').onclick=()=>{
     state:'running',
     voiceId,
     totalChunks:chunks.length,
-    totalChars:text.length,
+    originalChars:text.length,
+    totalChars:plan.preparedText.length,
+    readingMode,
     completedChunks:0,
     completedChars:0,
     completedInferenceMs:0,
@@ -667,7 +817,7 @@ $('synth').onclick=()=>{
     wavParts:[],
     heapBefore:performance.memory?.usedJSHeapSize??null
   };
-  log('tts-chunks',{count:chunks.length,lengths:chunks.map(x=>x.length),textChars:text.length});
+  log('tts-chunks',{count:chunks.length,lengths:chunks.map(x=>x.text.length),pausesMs:chunks.map(x=>x.pauseAfterMs),textCharsOriginal:text.length,textCharsPrepared:plan.preparedText.length,readingMode});
   startTtsTimer();
   getTtsWorker().postMessage({type:'synth',jobId:ttsJob.id,voiceId,chunks});
 };

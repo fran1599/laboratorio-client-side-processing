@@ -10,7 +10,7 @@
 <body>
 <main class="shell">
   <header class="hero">
-    <p class="eyebrow">Experimento 0.1.3 · local-first</p>
+    <p class="eyebrow">Experimento 0.1.4 · local-first</p>
     <h1>Voz ↔ texto en el navegador</h1>
     <p>El prototipo intenta procesar el contenido en este dispositivo. Descarga código y modelos desde Internet, pero no configura ningún servidor de inferencia ni fallback remoto; el tráfico debe inspeccionarse antes de afirmar privacidad.</p>
     <div class="notice"><strong>Estado:</strong> prototipo no validado. Antes de afirmar privacidad u operación offline hay que inspeccionar tráfico de red y probar hardware real.</div>
@@ -49,19 +49,46 @@
     <div class="controls">
       <label>Voz<select id="voice"><option value="">Cargar voces disponibles…</option></select></label>
     </div>
+    <div class="controls">
+      <label class="check"><input id="progressive-play" type="checkbox" checked> Reproducir en cuanto haya audio disponible</label>
+    </div>
     <p id="tts-status" class="status">Motor no inicializado.</p>
-    <progress id="tts-progress" max="100" value="0"></progress>
     <div class="actions"><button id="voices">Cargar voces</button><button id="synth" class="primary" disabled>Sintetizar localmente</button></div>
 
+    <div id="tts-job" class="job-panel" hidden>
+      <div class="job-title-row">
+        <div>
+          <p class="eyebrow">Progreso de conversión</p>
+          <h3 id="tts-stage">Preparando</h3>
+        </div>
+        <strong id="tts-overall">0%</strong>
+      </div>
+      <progress id="tts-progress" max="100" value="0"></progress>
+      <div class="job-grid">
+        <div><span>Fragmentos</span><strong id="tts-fragment">0 / 0</strong></div>
+        <div><span>Transcurrido</span><strong id="tts-elapsed">0:00</strong></div>
+        <div><span>Tiempo restante</span><strong id="tts-eta">Calculando…</strong></div>
+        <div><span>Audio generado</span><strong id="tts-generated">0:00</strong></div>
+        <div><span>Buffer disponible</span><strong id="tts-buffer">0:00</strong></div>
+      </div>
+      <div class="partial-progress">
+        <span id="tts-current">Esperando al motor…</span>
+        <progress id="tts-chunk-progress" max="100"></progress>
+      </div>
+    </div>
+
     <div id="player" class="player" hidden>
-      <div class="head"><div><p class="eyebrow">Reproducción local</p><h3>Audio generado</h3></div></div>
-      <audio id="tts-audio" controls preload="metadata"></audio>
+      <div class="head">
+        <div><p class="eyebrow">Reproducción local</p><h3>Audio generado</h3></div>
+        <span id="tts-play-state" class="muted">Listo para reproducir</span>
+      </div>
+      <audio id="tts-audio" preload="metadata" hidden></audio>
       <div class="actions player-actions">
         <button id="playpause">Reproducir</button>
         <button id="restart">Reiniciar</button>
         <span id="player-time" class="time">0:00 / 0:00</span>
       </div>
-      <label class="seek-row">Posición
+      <label class="seek-row">Posición disponible
         <input id="seek" type="range" min="0" max="1000" step="1" value="0">
       </label>
       <div class="controls">
@@ -78,8 +105,8 @@
         </label>
         <label class="check"><input id="preserve-pitch" type="checkbox" checked> Conservar tono al cambiar velocidad</label>
       </div>
-      <div class="actions"><button id="download-wav">Descargar WAV</button></div>
-      <p class="muted">Cambiar la velocidad modifica solamente la reproducción del WAV ya generado; no vuelve a ejecutar el modelo.</p>
+      <div class="actions"><button id="download-wav" disabled>Descargar WAV completo</button></div>
+      <p class="muted">Mientras la conversión sigue activa, sólo se puede recorrer el audio ya generado. Al finalizar queda disponible el WAV completo.</p>
     </div>
     <div id="tts-metrics" class="metrics"></div>
   </section>

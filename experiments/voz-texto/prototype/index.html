@@ -10,7 +10,7 @@
 <body>
 <main class="shell">
   <header class="hero">
-    <p class="eyebrow">Experimento 0.1.4 · local-first</p>
+    <p class="eyebrow">Experimento 0.1.5 · local-first</p>
     <h1>Voz ↔ texto en el navegador</h1>
     <p>El prototipo intenta procesar el contenido en este dispositivo. Descarga código y modelos desde Internet, pero no configura ningún servidor de inferencia ni fallback remoto; el tráfico debe inspeccionarse antes de afirmar privacidad.</p>
     <div class="notice"><strong>Estado:</strong> prototipo no validado. Antes de afirmar privacidad u operación offline hay que inspeccionar tráfico de red y probar hardware real.</div>
@@ -48,10 +48,22 @@
     <textarea id="tts-text" rows="6">Hola. Esta es una prueba de síntesis de voz ejecutada localmente en el navegador.</textarea>
     <div class="controls">
       <label>Voz<select id="voice"><option value="">Cargar voces disponibles…</option></select></label>
+      <label>Modo de lectura
+        <select id="reading-mode">
+          <option value="natural" selected>Natural — preparar texto y pausas</option>
+          <option value="literal">Literal — conservar texto</option>
+        </select>
+      </label>
     </div>
     <div class="controls">
       <label class="check"><input id="progressive-play" type="checkbox" checked> Reproducir en cuanto haya audio disponible</label>
     </div>
+    <details class="prep-preview">
+      <summary>Ver texto preparado para voz</summary>
+      <p id="prep-summary" class="muted">Todavía no se preparó el texto.</p>
+      <textarea id="prepared-text" rows="7" readonly></textarea>
+      <p class="muted">El modo Natural elimina marcas visuales de Markdown, evita leer URLs completas y conserva la puntuación útil para la voz. El texto original no se modifica.</p>
+    </details>
     <p id="tts-status" class="status">Motor no inicializado.</p>
     <div class="actions"><button id="voices">Cargar voces</button><button id="synth" class="primary" disabled>Sintetizar localmente</button></div>
 

@@ -21,7 +21,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.3
+## Prototipo 0.1.4
 
 Código: [`prototype/`](prototype/).
 
@@ -132,6 +132,27 @@ El runtime anterior dejó de fallar en la carga explícita del módulo WASM, per
 El intento se hizo con una respuesta de longitud considerable, por lo que el texto largo queda como variable plausible pero todavía no probada. Como referencia de implementación, AnythingLLM segmenta Piper en bloques de hasta 400 caracteres para mantener cada predicción acotada.
 
 **Corrección 0.1.3:** segmentar el texto por oraciones y palabras hasta ~400 caracteres, sintetizar secuencialmente, registrar cada fragmento y unir los WAV localmente en un único audio. El logging ahora conserva tipo, mensaje, stack/cause cuando existan y el índice exacto del fragmento que falla.
+
+### Cuarta ejecución real — 2026-11-15 — versión 0.1.3
+
+La síntesis larga se completó correctamente en el equipo de prueba de 4 GB de RAM aproximada y 4 hilos lógicos informados por el navegador.
+
+Resultados observados:
+
+- 14.213 caracteres;
+- 42 fragmentos;
+- 560.385 ms de inferencia acumulada (~9 min 20 s);
+- WAV final de 93.978.398 bytes;
+- audio final observado en la interfaz: 16 min 18 s;
+- heap JavaScript informado: ~70 MiB antes y ~518 MiB después;
+- los 42 fragmentos finalizaron sin error;
+- los controles de velocidad y conservación de tono fueron ejercitados después de la síntesis.
+
+Con esos datos, la generación fue aproximadamente 0,57 veces la duración del audio: el equipo genera más rápido que la reproducción a 1×. Esto abre una vía útil para comenzar a reproducir fragmentos terminados mientras los siguientes continúan sintetizándose.
+
+La captura de interfaz también mostró duplicación conceptual: el reproductor nativo del navegador y los controles personalizados ofrecían play/pausa, tiempo y posición simultáneamente.
+
+**Evolución 0.1.4:** mover la síntesis a un Web Worker para mantener la interfaz responsiva; mostrar progreso total y parcial, tiempo transcurrido, estimación restante, fragmentos completados, audio generado y buffer disponible; iniciar reproducción progresiva en cuanto exista un fragmento; mantener generación secuencial para no multiplicar el consumo de memoria; y conservar un solo conjunto visible de controles de reproducción.
 
 Los resultados deben distinguir observaciones de hipótesis y no deben incluir grabaciones ni textos sensibles.
 

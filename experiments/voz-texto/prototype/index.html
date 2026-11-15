@@ -10,7 +10,7 @@
 <body>
 <main class="shell">
   <header class="hero">
-    <p class="eyebrow">Experimento 0.1.5 · local-first</p>
+    <p class="eyebrow">Experimento 0.1.6 · local-first</p>
     <h1>Voz ↔ texto en el navegador</h1>
     <p>El prototipo intenta procesar el contenido en este dispositivo. Descarga código y modelos desde Internet, pero no configura ningún servidor de inferencia ni fallback remoto; el tráfico debe inspeccionarse antes de afirmar privacidad.</p>
     <div class="notice"><strong>Estado:</strong> prototipo no validado. Antes de afirmar privacidad u operación offline hay que inspeccionar tráfico de red y probar hardware real.</div>
@@ -120,6 +120,31 @@
       <div class="actions"><button id="download-wav" disabled>Descargar WAV completo</button></div>
       <p class="muted">Mientras la conversión sigue activa, sólo se puede recorrer el audio ya generado. Al finalizar queda disponible el WAV completo.</p>
     </div>
+    <section class="voice-lab">
+      <div class="head">
+        <div>
+          <p class="eyebrow">Prueba A/B</p>
+          <h3>Comparador de voces</h3>
+        </div>
+        <span class="pill">Mismo texto · distinta voz</span>
+      </div>
+      <p class="muted">Esta prueba mantiene fijo el texto preparado y cambia únicamente la voz. Para reducir tiempo y descarga, conviene usar una muestra de entre 250 y 500 caracteres.</p>
+      <textarea id="compare-text" rows="5">Hoy quiero probar cómo suena esta voz en una lectura cotidiana. ¿Respeta una pregunta? También debería resolver bien una enumeración: primero, claridad; segundo, ritmo; y tercero, naturalidad. Al final de este párrafo tendría que aparecer una pausa perceptible, pero no exagerada.</textarea>
+      <div class="actions">
+        <button id="compare-from-main">Usar muestra del texto actual</button>
+      </div>
+      <div id="compare-voices" class="voice-options">
+        <span class="muted">Cargá las voces para habilitar la comparación.</span>
+      </div>
+      <div class="actions">
+        <button id="compare-generate" class="primary" disabled>Generar comparación A/B</button>
+      </div>
+      <p id="compare-status" class="status">Sin comparación iniciada.</p>
+      <progress id="compare-progress" max="100" value="0"></progress>
+      <div id="compare-results" class="compare-results"></div>
+      <p class="muted">Puntuá cada voz del 1 al 5 en naturalidad, claridad y timbre, y marcá una favorita. La valoración se incorpora al JSON experimental.</p>
+    </section>
+
     <div id="tts-metrics" class="metrics"></div>
   </section>
 

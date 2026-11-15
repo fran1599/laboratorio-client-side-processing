@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.6', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
+const run = { version:'0.1.7', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -126,47 +126,66 @@ function splitLongSpeechUnit(text,maxLength){
   return pieces;
 }
 
-function buildNaturalSpeechPlan(text,maxLength=400){
+const PAUSE_PROFILES={
+  compact:{period:240,question:360,exclamation:320,paragraph:500,technical:140,end:180},
+  naturalPlus:{period:380,question:560,exclamation:460,paragraph:760,technical:180,end:240},
+  marked:{period:500,question:720,exclamation:600,paragraph:950,technical:220,end:320}
+};
+
+const PROSODY_PRESETS={
+  original:null,
+  naturalA:{lengthScale:1.03,noiseScale:0.75,noiseW:0.72},
+  naturalB:{lengthScale:1.06,noiseScale:0.85,noiseW:0.65}
+};
+
+function punctuationBoundary(text){
+  const value=text.trim().replace(/["'»”)]*$/,'');
+  if(value.endsWith('?'))return'question';
+  if(value.endsWith('!'))return'exclamation';
+  if(value.endsWith('.')||value.endsWith('…'))return'period';
+  return'period';
+}
+
+function buildNaturalSpeechPlan(text,maxLength=400,pauseProfile='naturalPlus'){
   const prepared=stripMarkdownForSpeech(text);
   if(!prepared)return{preparedText:'',chunks:[]};
+  const pauses=PAUSE_PROFILES[pauseProfile]||PAUSE_PROFILES.naturalPlus;
   const paragraphs=prepared.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
   const chunks=[];
 
   for(let p=0;p<paragraphs.length;p++){
     const paragraph=paragraphs[p].replace(/\n+/g,' ').trim();
     const sentences=paragraph.match(/[^.!?…]+[.!?…]+(?:["'»”)]*)|[^.!?…]+$/g)??[paragraph];
-    let current='';
-
-    const push=(pauseAfterMs=260,boundary='sentence')=>{
-      const value=current.trim();
-      if(value)chunks.push({text:value,pauseAfterMs,boundary});
-      current='';
-    };
 
     for(let s=0;s<sentences.length;s++){
       const sentence=sentences[s].trim();
       if(!sentence)continue;
       const parts=splitLongSpeechUnit(sentence,maxLength);
+      const baseBoundary=punctuationBoundary(sentence);
       for(let i=0;i<parts.length;i++){
-        const part=parts[i];
-        const candidate=(current+' '+part).trim();
-        if(candidate.length>maxLength){
-          push(220,'sentence');
-          current=part;
-        }else current=candidate;
+        const lastPart=i===parts.length-1;
+        const lastSentence=s===sentences.length-1;
+        const lastParagraph=p===paragraphs.length-1;
 
-        const isLastPart=i===parts.length-1;
-        const isLastSentence=s===sentences.length-1;
-        if(isLastPart&&isLastSentence){
-          const paragraphPause=p===paragraphs.length-1?220:560;
-          push(paragraphPause,p===paragraphs.length-1?'end':'paragraph');
+        let boundary='technical';
+        let pauseAfterMs=pauses.technical;
+        if(lastPart){
+          boundary=baseBoundary;
+          pauseAfterMs=pauses[baseBoundary]??pauses.period;
+          if(lastSentence&&!lastParagraph){
+            boundary='paragraph';
+            pauseAfterMs=Math.max(pauseAfterMs,pauses.paragraph);
+          }else if(lastSentence&&lastParagraph){
+            boundary='end';
+            pauseAfterMs=Math.max(pauseAfterMs,pauses.end);
+          }
         }
+        chunks.push({text:parts[i],pauseAfterMs,boundary});
       }
     }
   }
-  return{preparedText:prepared,chunks};
+  return{preparedText:prepared,chunks,pauseProfile};
 }
-
 function buildLiteralSpeechPlan(text,maxLength=400){
   const prepared=String(text||'').trim();
   if(!prepared)return{preparedText:'',chunks:[]};
@@ -190,22 +209,23 @@ function buildLiteralSpeechPlan(text,maxLength=400){
   return{preparedText:prepared,chunks};
 }
 
-function buildSpeechPlan(text,mode='natural',maxLength=400){
+function buildSpeechPlan(text,mode='natural',maxLength=400,pauseProfile='naturalPlus'){
   return mode==='literal'
     ?buildLiteralSpeechPlan(text,maxLength)
-    :buildNaturalSpeechPlan(text,maxLength);
+    :buildNaturalSpeechPlan(text,maxLength,pauseProfile);
 }
 
 function refreshSpeechPreview(){
   const text=$('tts-text')?.value??'';
   const mode=$('reading-mode')?.value??'natural';
-  const plan=buildSpeechPlan(text,mode,400);
+  const pauseProfile=$('pause-profile')?.value??'naturalPlus';
+  const plan=buildSpeechPlan(text,mode,400,pauseProfile);
   if($('prepared-text'))$('prepared-text').value=plan.preparedText;
   if($('prep-summary')){
     $('prep-summary').textContent=
       (mode==='natural'?'Lectura natural':'Lectura literal')+
       ' · '+text.length+' caracteres originales · '+plan.preparedText.length+
-      ' preparados · '+plan.chunks.length+' fragmentos';
+      ' preparados · '+plan.chunks.length+' fragmentos · pausas '+($('pause-profile')?.selectedOptions?.[0]?.textContent||'');
   }
   return plan;
 }
@@ -915,6 +935,9 @@ async function handleTtsWorkerMessage(data){
       firstAudioReadyMs:ttsJob.firstAudioReadyMs,
       chunks:ttsJob.totalChunks,
       readingMode:ttsJob.readingMode,
+      pauseProfile:ttsJob.pauseProfile,
+      prosodyPreset:ttsJob.prosodyPreset,
+      prosody:ttsJob.prosody,
       textCharsOriginal:ttsJob.originalChars,
       textCharsPrepared:ttsJob.totalChars,
       wavBytes:currentWav.size,
@@ -962,14 +985,26 @@ $('compare-generate').onclick=()=>{
 
 $('tts-text').addEventListener('input',refreshSpeechPreview);
 $('reading-mode').addEventListener('change',refreshSpeechPreview);
+$('pause-profile').addEventListener('change',refreshSpeechPreview);
+$('prosody-preset').addEventListener('change',()=>{
+  const key=$('prosody-preset').value;
+  const p=PROSODY_PRESETS[key];
+  $('prosody-values').textContent=p
+    ?'length_scale '+p.lengthScale+' · noise_scale '+p.noiseScale+' · noise_w '+p.noiseW
+    :'Valores originales de la voz';
+});
 refreshSpeechPreview();
+$('prosody-preset').dispatchEvent(new Event('change'));
 
 $('synth').onclick=()=>{
   const voiceId=$('voice').value;
   const text=$('tts-text').value.trim();
   if(!voiceId||!text)return;
   const readingMode=$('reading-mode').value;
-  const plan=buildSpeechPlan(text,readingMode,400);
+  const pauseProfile=$('pause-profile').value;
+  const prosodyPreset=$('prosody-preset').value;
+  const prosody=PROSODY_PRESETS[prosodyPreset];
+  const plan=buildSpeechPlan(text,readingMode,400,pauseProfile);
   const chunks=plan.chunks;
   if(!chunks.length)return;
   resetStream();
@@ -987,6 +1022,9 @@ $('synth').onclick=()=>{
     originalChars:text.length,
     totalChars:plan.preparedText.length,
     readingMode,
+    pauseProfile,
+    prosodyPreset,
+    prosody,
     completedChunks:0,
     completedChars:0,
     completedInferenceMs:0,
@@ -998,9 +1036,9 @@ $('synth').onclick=()=>{
     wavParts:[],
     heapBefore:performance.memory?.usedJSHeapSize??null
   };
-  log('tts-chunks',{count:chunks.length,lengths:chunks.map(x=>x.text.length),pausesMs:chunks.map(x=>x.pauseAfterMs),textCharsOriginal:text.length,textCharsPrepared:plan.preparedText.length,readingMode});
+  log('tts-chunks',{count:chunks.length,lengths:chunks.map(x=>x.text.length),pausesMs:chunks.map(x=>x.pauseAfterMs),boundaries:chunks.map(x=>x.boundary),textCharsOriginal:text.length,textCharsPrepared:plan.preparedText.length,readingMode,pauseProfile,prosodyPreset,prosody});
   startTtsTimer();
-  getTtsWorker().postMessage({type:'synth',jobId:ttsJob.id,voiceId,chunks});
+  getTtsWorker().postMessage({type:'synth',jobId:ttsJob.id,voiceId,chunks,prosody});
 };
 
 $('export').onclick=()=>{

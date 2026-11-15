@@ -1,4 +1,4 @@
-# Prototipo 0.1.5
+# Prototipo 0.1.6
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -73,3 +73,20 @@ Desde 0.1.5 el TTS permite comparar dos modos:
 La interfaz permite inspeccionar la versión preparada antes de sintetizar. El texto original no se sobrescribe.
 
 La puntuación dentro de cada fragmento sigue siendo interpretada por Piper. Los silencios agregados por la aplicación actúan principalmente en límites de párrafos, títulos/listas y cortes técnicos. Esta etapa no modifica todavía los parámetros internos de prosodia del modelo.
+
+
+## Comparación A/B de voces
+
+Desde 0.1.6 se agrega un banco comparativo para elegir la mejor voz base antes de intervenir la prosodia.
+
+La prueba usa una muestra corta y mantiene fijo el texto preparado. Se generan secuencialmente varias voces para evitar concurrencia de modelos y consumo innecesario de memoria.
+
+La interfaz permite:
+
+- seleccionar las voces a comparar;
+- reutilizar una muestra del texto principal;
+- escuchar cada resultado por separado;
+- puntuar naturalidad, claridad y timbre del 1 al 5;
+- marcar una voz favorita.
+
+Estas valoraciones se incluyen en el JSON experimental bajo `voiceComparisons`. El objetivo es seleccionar una o dos voces candidatas y recién después experimentar con parámetros internos de prosodia.

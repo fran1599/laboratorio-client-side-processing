@@ -1,4 +1,4 @@
-# Prototipo 0.1
+# Prototipo 0.1.2
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -27,7 +27,8 @@ Usar preferentemente Chrome o Edge actualizado para la primera ronda.
 5. Repetir con CPU/WASM.
 6. Si es estable, probar ~60 segundos.
 7. Cargar voces Piper y sintetizar una frase.
-8. Descargar el JSON de evidencia.
+8. Si genera audio, probar play/pausa, seek y velocidades entre 0,5× y 2×.
+9. Descargar el WAV y el JSON de evidencia.
 
 ## Red y privacidad
 
@@ -36,7 +37,7 @@ No hay backend de inferencia ni fallback remoto.
 La aplicación sí descarga recursos de red:
 
 - Transformers.js 3.8.1 desde jsDelivr.
-- Piper TTS Web 1.0.5 desde jsDelivr.
+- `@jtsage/piper-tts-web` 1.2.0 desde jsDelivr, con ONNX Runtime 1.22.0.
 - Whisper Tiny desde Hugging Face.
 - modelos y recursos de voz utilizados por Piper.
 

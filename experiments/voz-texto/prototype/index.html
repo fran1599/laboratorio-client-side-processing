@@ -10,7 +10,7 @@
 <body>
 <main class="shell">
   <header class="hero">
-    <p class="eyebrow">Experimento 0.1.1 · local-first</p>
+    <p class="eyebrow">Experimento 0.1.2 · local-first</p>
     <h1>Voz ↔ texto en el navegador</h1>
     <p>El prototipo intenta procesar el contenido en este dispositivo. Descarga código y modelos desde Internet, pero no configura ningún servidor de inferencia ni fallback remoto; el tráfico debe inspeccionarse antes de afirmar privacidad.</p>
     <div class="notice"><strong>Estado:</strong> prototipo no validado. Antes de afirmar privacidad u operación offline hay que inspeccionar tráfico de red y probar hardware real.</div>
@@ -48,12 +48,39 @@
     <textarea id="tts-text" rows="6">Hola. Esta es una prueba de síntesis de voz ejecutada localmente en el navegador.</textarea>
     <div class="controls">
       <label>Voz<select id="voice"><option value="">Cargar voces disponibles…</option></select></label>
-      <label>Velocidad<input id="rate" type="range" min=".6" max="1.8" step=".1" value="1"><span id="rate-label">1.0×</span></label>
     </div>
     <p id="tts-status" class="status">Motor no inicializado.</p>
     <progress id="tts-progress" max="100" value="0"></progress>
     <div class="actions"><button id="voices">Cargar voces</button><button id="synth" class="primary" disabled>Sintetizar localmente</button></div>
-    <audio id="tts-audio" controls hidden></audio>
+
+    <div id="player" class="player" hidden>
+      <div class="head"><div><p class="eyebrow">Reproducción local</p><h3>Audio generado</h3></div></div>
+      <audio id="tts-audio" controls preload="metadata"></audio>
+      <div class="actions player-actions">
+        <button id="playpause">Reproducir</button>
+        <button id="restart">Reiniciar</button>
+        <span id="player-time" class="time">0:00 / 0:00</span>
+      </div>
+      <label class="seek-row">Posición
+        <input id="seek" type="range" min="0" max="1000" step="1" value="0">
+      </label>
+      <div class="controls">
+        <label>Velocidad de reproducción
+          <select id="rate">
+            <option value=".5">0,5×</option>
+            <option value=".75">0,75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1,25×</option>
+            <option value="1.5">1,5×</option>
+            <option value="1.75">1,75×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
+        <label class="check"><input id="preserve-pitch" type="checkbox" checked> Conservar tono al cambiar velocidad</label>
+      </div>
+      <div class="actions"><button id="download-wav">Descargar WAV</button></div>
+      <p class="muted">Cambiar la velocidad modifica solamente la reproducción del WAV ya generado; no vuelve a ejecutar el modelo.</p>
+    </div>
     <div id="tts-metrics" class="metrics"></div>
   </section>
 

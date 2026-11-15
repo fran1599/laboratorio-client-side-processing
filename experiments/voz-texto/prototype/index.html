@@ -10,7 +10,7 @@
 <body>
 <main class="shell">
   <header class="hero">
-    <p class="eyebrow">Experimento 0.1.6 · local-first</p>
+    <p class="eyebrow">Experimento 0.1.7 · local-first</p>
     <h1>Voz ↔ texto en el navegador</h1>
     <p>El prototipo intenta procesar el contenido en este dispositivo. Descarga código y modelos desde Internet, pero no configura ningún servidor de inferencia ni fallback remoto; el tráfico debe inspeccionarse antes de afirmar privacidad.</p>
     <div class="notice"><strong>Estado:</strong> prototipo no validado. Antes de afirmar privacidad u operación offline hay que inspeccionar tráfico de red y probar hardware real.</div>
@@ -54,7 +54,23 @@
           <option value="literal">Literal — conservar texto</option>
         </select>
       </label>
+      <label>Perfil de pausas
+        <select id="pause-profile">
+          <option value="compact">Compacto</option>
+          <option value="naturalPlus" selected>Natural+ — preguntas y puntos más respirados</option>
+          <option value="marked">Marcado</option>
+        </select>
+      </label>
+      <label>Prosodia experimental
+        <select id="prosody-preset">
+          <option value="original">Original de la voz</option>
+          <option value="naturalA" selected>Claude Natural A — variación leve</option>
+          <option value="naturalB">Claude Natural B — más expresiva</option>
+        </select>
+      </label>
     </div>
+    <p id="prosody-values" class="muted">Valores originales de la voz</p>
+    <p class="muted">Los perfiles Natural A/B están calibrados como experimento alrededor de Claude high. En otras voces pueden producir resultados distintos.</p>
     <div class="controls">
       <label class="check"><input id="progressive-play" type="checkbox" checked> Reproducir en cuanto haya audio disponible</label>
     </div>

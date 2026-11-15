@@ -15,3 +15,10 @@
   .job-grid>div{background:#111827;border-color:#334155}
   .job-grid span,.partial-progress>span{color:#94a3b8}
 }
+.prep-preview{margin:.75rem 0 1rem;border:1px solid #e2e8f0;border-radius:12px;padding:.8rem;background:#f8fafc}
+.prep-preview summary{cursor:pointer;font-weight:600}
+.prep-preview textarea{margin-top:.65rem;background:#f8fafc}
+@media(prefers-color-scheme:dark){
+  .prep-preview{background:#1e293b;border-color:#334155}
+  .prep-preview textarea{background:#111827}
+}

@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.5', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], events:[] };
+const run = { version:'0.1.6', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -417,6 +417,9 @@ let streamItems=[];
 let streamIndex=-1;
 let playRequested=false;
 let waitingForChunk=false;
+let availableTtsVoices=[];
+let compareJob=null;
+const compareAudioUrls=new Map();
 
 function getTtsWorker(){
   if(ttsWorker)return ttsWorker;
@@ -457,6 +460,122 @@ function voiceLabel(v){
   const quality=v.quality||v.model_quality||null;
   return[name,language,quality].filter(Boolean).join(' · ');
 }
+function renderVoiceCompareOptions(list){
+  availableTtsVoices=list;
+  const root=$('compare-voices');
+  root.replaceChildren();
+  const preferred=['es_MX-claude-high','es_ES-davefx-medium','es_ES-sharvard-medium','es_ES-carlfm-x_low'];
+  for(const voice of list){
+    const label=document.createElement('label');
+    label.className='voice-option';
+    const input=document.createElement('input');
+    input.type='checkbox';
+    input.value=voice.key;
+    input.checked=preferred.includes(voice.key);
+    const text=document.createElement('span');
+    text.textContent=voiceLabel(voice);
+    label.append(input,text);
+    root.append(label);
+  }
+  $('compare-generate').disabled=!list.length;
+}
+function selectedCompareVoices(){
+  return [...document.querySelectorAll('#compare-voices input[type="checkbox"]:checked')].map(x=>x.value);
+}
+function compactCompareText(text,maxLength=500){
+  const prepared=stripMarkdownForSpeech(text).replace(/\n+/g,' ').trim();
+  if(prepared.length<=maxLength)return prepared;
+  const cut=prepared.slice(0,maxLength);
+  const boundary=Math.max(cut.lastIndexOf('. '),cut.lastIndexOf('? '),cut.lastIndexOf('! '),cut.lastIndexOf('; '));
+  return (boundary>180?cut.slice(0,boundary+1):cut).trim();
+}
+function compareVoiceName(voiceId){
+  const voice=availableTtsVoices.find(v=>v.key===voiceId);
+  return voice?voiceLabel(voice):voiceId;
+}
+function setComparisonRating(voiceId,field,value){
+  const item=compareJob?.results?.find(x=>x.voiceId===voiceId);
+  if(!item)return;
+  item.ratings=item.ratings||{};
+  item.ratings[field]=value===''?null:Number(value);
+  persistComparisonSnapshot();
+}
+function setComparisonFavorite(voiceId){
+  if(!compareJob)return;
+  compareJob.favorite=voiceId;
+  persistComparisonSnapshot();
+}
+function persistComparisonSnapshot(){
+  if(!compareJob)return;
+  const snapshot={
+    at:new Date().toISOString(),
+    jobId:compareJob.id,
+    sampleChars:compareJob.text.length,
+    voices:compareJob.voices,
+    completed:compareJob.completed,
+    favorite:compareJob.favorite||null,
+    results:compareJob.results.map(x=>({
+      voiceId:x.voiceId,
+      inferenceMs:x.inferenceMs,
+      wavBytes:x.wavBytes,
+      ratings:x.ratings||{naturalness:null,clarity:null,timbre:null}
+    }))
+  };
+  const index=run.voiceComparisons.findIndex(x=>x.jobId===snapshot.jobId);
+  if(index>=0)run.voiceComparisons[index]=snapshot;
+  else run.voiceComparisons.push(snapshot);
+}
+function renderCompareResult(data){
+  const root=$('compare-results');
+  const card=document.createElement('article');
+  card.className='voice-result';
+  card.dataset.voiceId=data.voiceId;
+
+  const title=document.createElement('h4');
+  title.textContent=compareVoiceName(data.voiceId);
+
+  const meta=document.createElement('p');
+  meta.className='muted';
+  meta.textContent='Inferencia: '+(data.inferenceMs/1000).toFixed(1)+' s · '+bytes(data.wav.size||0);
+
+  const audio=document.createElement('audio');
+  audio.controls=true;
+  audio.preload='metadata';
+  const old=compareAudioUrls.get(data.voiceId);
+  if(old)URL.revokeObjectURL(old);
+  const url=URL.createObjectURL(data.wav);
+  compareAudioUrls.set(data.voiceId,url);
+  audio.src=url;
+
+  const ratings=document.createElement('div');
+  ratings.className='rating-grid';
+  for(const [field,labelText] of [
+    ['naturalness','Naturalidad'],
+    ['clarity','Claridad'],
+    ['timbre','Timbre']
+  ]){
+    const label=document.createElement('label');
+    label.textContent=labelText;
+    const select=document.createElement('select');
+    select.innerHTML='<option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>';
+    select.addEventListener('change',()=>setComparisonRating(data.voiceId,field,select.value));
+    label.append(select);
+    ratings.append(label);
+  }
+
+  const favorite=document.createElement('label');
+  favorite.className='favorite-option';
+  const radio=document.createElement('input');
+  radio.type='radio';
+  radio.name='voice-favorite';
+  radio.value=data.voiceId;
+  radio.addEventListener('change',()=>setComparisonFavorite(data.voiceId));
+  favorite.append(radio,document.createTextNode(' Marcar como favorita'));
+
+  card.append(title,meta,audio,ratings,favorite);
+  root.append(card);
+}
+
 function formatDuration(seconds){
   if(!Number.isFinite(seconds)||seconds<0)return'—';
   const rounded=Math.max(0,Math.round(seconds));
@@ -681,6 +800,7 @@ async function handleTtsWorkerMessage(data){
     const preferred=list.find(v=>/es_AR.*daniela|daniela/i.test([v.key,v.name].filter(Boolean).join(' ')));
     if(preferred)select.value=preferred.key;
     $('synth').disabled=!list.length;
+    renderVoiceCompareOptions(list);
     $('voices').disabled=false;
     $('tts-status').textContent=list.length?list.length+' voces candidatas.':'No se encontraron voces.';
     log('tts-voices',{count:list.length,selected:select.value||null,sampleKeys:list.slice(0,5).map(v=>v.key)});
@@ -703,6 +823,40 @@ async function handleTtsWorkerMessage(data){
       $('tts-current').textContent=percent+'% de '+bytes(p.total);
       $('tts-chunk-progress').value=percent;
     }
+    return;
+  }
+  if(data.type==='compare-start'&&compareJob&&data.jobId===compareJob.id){
+    $('compare-status').textContent='Generando '+data.index+' de '+data.total+': '+compareVoiceName(data.voiceId);
+    $('compare-progress').value=Math.round(((data.index-1)/data.total)*100);
+    return;
+  }
+  if(data.type==='compare-result'&&compareJob&&data.jobId===compareJob.id){
+    const item={
+      voiceId:data.voiceId,
+      inferenceMs:data.inferenceMs,
+      wavBytes:data.wav.size??null,
+      ratings:{naturalness:null,clarity:null,timbre:null}
+    };
+    compareJob.results.push(item);
+    compareJob.completed=compareJob.results.length;
+    renderCompareResult(data);
+    $('compare-progress').value=Math.round((compareJob.completed/compareJob.voices.length)*100);
+    $('compare-status').textContent='Listas '+compareJob.completed+' de '+compareJob.voices.length+' voces.';
+    log('voice-compare-result',{voiceId:data.voiceId,inferenceMs:data.inferenceMs,wavBytes:data.wav.size??null});
+    persistComparisonSnapshot();
+    return;
+  }
+  if(data.type==='compare-error'&&compareJob&&data.jobId===compareJob.id){
+    log('voice-compare-error',{voiceId:data.voiceId,error:data.error});
+    $('compare-status').textContent='Falló '+compareVoiceName(data.voiceId)+'. Continúa la comparación…';
+    return;
+  }
+  if(data.type==='compare-complete'&&compareJob&&data.jobId===compareJob.id){
+    $('compare-progress').value=100;
+    $('compare-status').textContent='Comparación lista. Escuchá y puntuá cada voz.';
+    $('compare-generate').disabled=false;
+    persistComparisonSnapshot();
+    log('voice-compare-complete',{voices:compareJob.voices,completed:compareJob.completed});
     return;
   }
   if(!ttsJob||data.jobId!==ttsJob.id)return;
@@ -780,6 +934,31 @@ async function handleTtsWorkerMessage(data){
     finishTtsJob(true);
   }
 }
+
+$('compare-from-main').onclick=()=>{
+  $('compare-text').value=compactCompareText($('tts-text').value,500);
+};
+$('compare-generate').onclick=()=>{
+  const voices=selectedCompareVoices();
+  const text=compactCompareText($('compare-text').value,500);
+  if(!voices.length||!text)return;
+  for(const url of compareAudioUrls.values())URL.revokeObjectURL(url);
+  compareAudioUrls.clear();
+  $('compare-results').replaceChildren();
+  $('compare-generate').disabled=true;
+  $('compare-progress').value=0;
+  $('compare-status').textContent='Preparando comparación…';
+  compareJob={
+    id:'compare-'+Date.now(),
+    text,
+    voices,
+    results:[],
+    completed:0,
+    favorite:null
+  };
+  log('voice-compare-start',{voices,textChars:text.length});
+  getTtsWorker().postMessage({type:'compare-voices',jobId:compareJob.id,voices,text});
+};
 
 $('tts-text').addEventListener('input',refreshSpeechPreview);
 $('reading-mode').addEventListener('change',refreshSpeechPreview);

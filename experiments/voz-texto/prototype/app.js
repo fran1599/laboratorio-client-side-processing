@@ -817,7 +817,7 @@ async function handleTtsWorkerMessage(data){
       option.textContent=voiceLabel(v);
       select.append(option);
     }
-    const preferred=list.find(v=>/es_AR.*daniela|daniela/i.test([v.key,v.name].filter(Boolean).join(' ')));
+    const preferred=list.find(v=>v.key==='es_MX-claude-high') || list.find(v=>/es_AR.*daniela|daniela/i.test([v.key,v.name].filter(Boolean).join(' ')));
     if(preferred)select.value=preferred.key;
     $('synth').disabled=!list.length;
     renderVoiceCompareOptions(list);

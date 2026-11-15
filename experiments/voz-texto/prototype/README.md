@@ -1,4 +1,4 @@
-# Prototipo 0.1.2
+# Prototipo 0.1.3
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -26,9 +26,10 @@ Usar preferentemente Chrome o Edge actualizado para la primera ronda.
 4. Repetir con WebGPU si está disponible.
 5. Repetir con CPU/WASM.
 6. Si es estable, probar ~60 segundos.
-7. Cargar voces Piper y sintetizar una frase.
-8. Si genera audio, probar play/pausa, seek y velocidades entre 0,5× y 2×.
-9. Descargar el WAV y el JSON de evidencia.
+7. Cargar voces Piper y sintetizar primero una frase corta.
+8. Probar después un texto largo; el prototipo lo divide automáticamente en fragmentos de hasta ~400 caracteres y vuelve a unir el audio localmente.
+9. Si genera audio, probar play/pausa, seek y velocidades entre 0,5× y 2×.
+10. Descargar el WAV y el JSON de evidencia.
 
 ## Red y privacidad
 

@@ -46,6 +46,30 @@ self.onmessage=async(event)=>{
       return;
     }
 
+    if(data.type==='compare-voices'){
+      const {jobId,voices=[],text=''}=data;
+      for(let i=0;i<voices.length;i++){
+        const voiceId=voices[i];
+        self.postMessage({type:'compare-start',jobId,index:i+1,total:voices.length,voiceId});
+        try{
+          const current=await ensureSession(voiceId);
+          const started=performance.now();
+          const wav=await current.predict(text);
+          self.postMessage({
+            type:'compare-result',jobId,index:i+1,total:voices.length,voiceId,
+            inferenceMs:Math.round(performance.now()-started),wav
+          });
+        }catch(error){
+          self.postMessage({
+            type:'compare-error',jobId,index:i+1,total:voices.length,voiceId,
+            error:serializeError(error)
+          });
+        }
+      }
+      self.postMessage({type:'compare-complete',jobId});
+      return;
+    }
+
     if(data.type!=='synth') return;
 
     const {jobId,voiceId,chunks=[]}=data;

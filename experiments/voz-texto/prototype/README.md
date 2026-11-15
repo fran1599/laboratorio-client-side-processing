@@ -1,4 +1,4 @@
-# Prototipo 0.1.6
+# Prototipo 0.1.7
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -90,3 +90,27 @@ La interfaz permite:
 - marcar una voz favorita.
 
 Estas valoraciones se incluyen en el JSON experimental bajo `voiceComparisons`. El objetivo es seleccionar una o dos voces candidatas y recién después experimentar con parámetros internos de prosodia.
+
+
+## Pausas y prosodia — Claude
+
+La 0.1.7 separa dos variables que antes estaban mezcladas:
+
+1. **Pausas externas:** silencios PCM agregados por la aplicación después de cada oración según el signo final y el límite de párrafo.
+2. **Prosodia interna:** parámetros de inferencia usados por Piper.
+
+Perfiles de pausa disponibles:
+
+- Compacto.
+- Natural+.
+- Marcado.
+
+Perfiles de prosodia experimentales para Claude high:
+
+- Original: usa los valores del JSON de la voz.
+- Natural A: `length_scale=1.03`, `noise_scale=0.75`, `noise_w=0.72`.
+- Natural B: `length_scale=1.06`, `noise_scale=0.85`, `noise_w=0.65`.
+
+El override se realiza mediante el `customLoader` de `CachedFileReader`: se intercepta únicamente el JSON de configuración, se modifican los valores de `inference` en memoria y se conserva el mismo ONNX.
+
+Esta técnica funciona estructuralmente con otras voces Piper, pero los valores deben evaluarse por voz.

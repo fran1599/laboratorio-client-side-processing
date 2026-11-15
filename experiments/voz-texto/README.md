@@ -21,7 +21,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.4
+## Prototipo 0.1.5
 
 Código: [`prototype/`](prototype/).
 
@@ -153,6 +153,16 @@ Con esos datos, la generación fue aproximadamente 0,57 veces la duración del a
 La captura de interfaz también mostró duplicación conceptual: el reproductor nativo del navegador y los controles personalizados ofrecían play/pausa, tiempo y posición simultáneamente.
 
 **Evolución 0.1.4:** mover la síntesis a un Web Worker para mantener la interfaz responsiva; mostrar progreso total y parcial, tiempo transcurrido, estimación restante, fragmentos completados, audio generado y buffer disponible; iniciar reproducción progresiva en cuanto exista un fragmento; mantener generación secuencial para no multiplicar el consumo de memoria; y conservar un solo conjunto visible de controles de reproducción.
+
+### Evolución 0.1.5 — lectura natural
+
+Se agrega una etapa explícita entre el texto original y Piper:
+
+`texto original → texto preparado → plan semántico → TTS → audio`.
+
+El modo Natural limpia marcas visuales de Markdown, reemplaza URLs por una referencia genérica, conserva la puntuación significativa, separa títulos y elementos de listas y agrega pausas explícitas entre bloques. La preparación es observable desde la interfaz y no modifica el texto original.
+
+Se mantiene un modo Literal para comparación A/B. Esta versión no altera todavía `length_scale`, `noise_scale` ni `noise_w`; primero se busca medir cuánto mejora la percepción actuando únicamente sobre preparación textual, segmentación y pausas.
 
 Los resultados deben distinguir observaciones de hipótesis y no deben incluir grabaciones ni textos sensibles.
 

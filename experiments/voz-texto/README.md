@@ -21,7 +21,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.8
+## Prototipo 0.1.9
 
 Código: [`prototype/`](prototype/).
 
@@ -211,3 +211,20 @@ Se incorpora un laboratorio separado del flujo principal para explorar parámetr
 La decisión de separar el laboratorio busca evitar que controles experimentales complejos contaminen la experiencia de uso cotidiano. Las configuraciones que demuestren una mejora estable podrán convertirse luego en presets del flujo principal.
 
 El laboratorio reutiliza la misma arquitectura local-first y el mismo Web Worker ya usados por el prototipo. No incorpora servidor Python ni JavaScript de interfaz adicional.
+
+### Quinta ejecución real — Laboratorio Piper 0.1.8 (15/11/2026, hora de Córdoba)
+
+Se recibió el JSON de una sesión con Claude high, 8 muestras completas y 3 intentos fallidos adicionales. Los intentos fallidos ocurrieron después de completar el primer fragmento y devolvieron valores numéricos no descriptivos desde el Worker. Los tres tenían `noise_w=1.50`; cada configuración fallida luego logró completarse en un reintento. Esto es una **asociación observada**, no evidencia causal suficiente para atribuir el problema al parámetro.
+
+La última muestra (n.º 8) fue considerada subjetivamente la más agradable hasta el momento:
+
+- voz: `es_MX-claude-high`;
+- `length_scale=0.89`, `noise_scale=1.10`, `noise_w=1.22`;
+- pausa tras punto: 380 ms; pregunta: 560 ms; exclamación: 460 ms; párrafo: 760 ms;
+- 229 caracteres, cuatro fragmentos, 4.263 ms de inferencia, 12,99 s de audio, factor de tiempo real 0,328.
+
+La experiencia positiva debe corroborarse en textos más largos, sin asumir que sea una preferencia generalizable a otras voces. La comparación entre muestras 1–4 y 5–8 no controla el texto: se trabajó primero con 348 y luego con 229 caracteres.
+
+**Evolución 0.1.9:** incorporar «Claude · candidata 8» al Laboratorio Piper; conservar en el JSON el fragmento exacto que falla y la configuración de los intentos fallidos; procesar secuencialmente los eventos del Worker para asegurar la integridad del ensamblado del WAV. Se mantienen los modelos y la infraestructura de la 0.1.8.
+
+**Próxima prueba:** comparar el perfil candidato con el original de Claude sobre un mismo texto de 1–2 minutos y evaluar estabilidad, naturalidad, pausas y articulación.

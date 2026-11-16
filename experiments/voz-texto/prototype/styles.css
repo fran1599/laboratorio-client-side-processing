@@ -40,3 +40,29 @@
   .voice-lab{background:#1e293b;border-color:#334155}
   .voice-option,.voice-result{background:#111827;border-color:#334155}
 }
+.prototype-tabs{display:flex;gap:.5rem;align-items:center;margin:.25rem 0 1rem;border-bottom:1px solid #e2e8f0;padding-bottom:.75rem}
+.prototype-tabs a{display:inline-flex;align-items:center;text-decoration:none;color:#475569;border:1px solid transparent;border-radius:999px;padding:.55rem .85rem;font-weight:600;font-size:.9rem}
+.prototype-tabs a:hover{background:#e2e8f0;color:#0f172a}
+.prototype-tabs a.active{background:#0f172a;color:#fff;border-color:#0f172a}
+.lab-sliders{display:grid;gap:1rem}
+.lab-sliders.compact-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.lab-sliders label{display:flex;flex-direction:column;gap:.5rem;border:1px solid #e2e8f0;border-radius:12px;padding:.9rem;background:#f8fafc}
+.lab-sliders label>span{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.lab-sliders output{font-variant-numeric:tabular-nums;font-weight:700}
+.lab-sliders input[type="range"]{width:100%}
+.lab-sliders small{color:#64748b;line-height:1.35}
+.lab-presets button{min-width:110px}
+.lab-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:.9rem}
+.lab-result-card{border:1px solid #e2e8f0;border-radius:14px;padding:1rem;background:#f8fafc}
+.lab-result-card h3{font-size:1rem;margin:0 0 .4rem;overflow-wrap:anywhere}
+.lab-result-card audio{width:100%;margin:.65rem 0}
+.button-link{display:inline-flex;align-items:center;text-decoration:none;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:10px;padding:.65rem .9rem}
+@media(prefers-color-scheme:dark){
+  .prototype-tabs{border-color:#334155}
+  .prototype-tabs a{color:#94a3b8}
+  .prototype-tabs a:hover{background:#1e293b;color:#f8fafc}
+  .prototype-tabs a.active{background:#f8fafc;color:#0f172a;border-color:#f8fafc}
+  .lab-sliders label,.lab-result-card{background:#1e293b;border-color:#334155}
+  .lab-sliders small{color:#94a3b8}
+  .button-link{background:#1e293b;color:#f8fafc;border-color:#475569}
+}

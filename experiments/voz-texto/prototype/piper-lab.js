@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 
 const run={
-  version:'0.1.8',
+  version:'0.1.9',
   startedAt:new Date().toISOString(),
   diagnostics:{
     hardwareConcurrency:navigator.hardwareConcurrency??null,
@@ -9,10 +9,12 @@ const run={
     secureContext:window.isSecureContext
   },
   samples:[],
+  failures:[],
   events:[]
 };
 
 let worker=null;
+let workerEventQueue=Promise.resolve();
 let voices=[];
 let currentJob=null;
 const sampleUrls=new Map();
@@ -23,7 +25,8 @@ const ORIGINAL={lengthScale:1,noiseScale:.667,noiseW:.8};
 const PRESETS={
   original:ORIGINAL,
   naturalA:{lengthScale:1.03,noiseScale:.75,noiseW:.72},
-  naturalB:{lengthScale:1.06,noiseScale:.85,noiseW:.65}
+  naturalB:{lengthScale:1.06,noiseScale:.85,noiseW:.65},
+  claudeCandidate8:{lengthScale:.89,noiseScale:1.10,noiseW:1.22}
 };
 const NATURAL_PAUSES={period:380,question:560,exclamation:460,paragraph:760};
 
@@ -50,10 +53,13 @@ function serializeError(error){
 function getWorker(){
   if(worker)return worker;
   worker=new Worker('./tts-worker.js',{type:'module'});
-  worker.onmessage=e=>handleWorker(e.data).catch(error=>{
-    $('lab-status').textContent='Error de interfaz: '+error.message;
-    log('lab-ui-error',{error:serializeError(error)});
-  });
+  worker.onmessage=e=>{
+    workerEventQueue=workerEventQueue.then(()=>handleWorker(e.data)).catch(error=>{
+      $('lab-status').textContent='Error de interfaz: '+error.message;
+      log('lab-ui-error',{error:serializeError(error)});
+      $('generate-sample').disabled=false;
+    });
+  };
   worker.onerror=e=>{
     $('lab-status').textContent='Error del Worker: '+(e.message||'desconocido');
     log('lab-worker-crash',{message:e.message||null});
@@ -126,6 +132,16 @@ function updateDefaultsState(){
   updateOutputs();
 }
 function applyProsody(preset){
+  if(preset==='claudeCandidate8'){
+    const claude=[...$('lab-voice').options].find(option=>option.value==='es_MX-claude-high');
+    if(!claude){
+      $('lab-status').textContent='Cargá las voces antes de aplicar el perfil candidato de Claude.';
+      return;
+    }
+    $('lab-voice').value=claude.value;
+    requestVoiceConfig();
+    applyNaturalPauses();
+  }
   if(preset==='original'){
     $('use-model-defaults').checked=true;
     const defaults=voiceDefaults.get($('lab-voice').value);
@@ -373,10 +389,42 @@ async function handleWorker(data){
     log('chunk-complete',{index:data.index,total:data.total,inferenceMs:data.inferenceMs,pauseAfterMs:data.pauseAfterMs});
     return;
   }
+  if(data.type==='chunk-error'){
+    currentJob.failedChunk={
+      index:data.index,
+      total:data.total,
+      chars:data.chars,
+      boundary:data.boundary??null,
+      error:data.error
+    };
+    $('lab-status').textContent='Error en el fragmento '+data.index+' de '+data.total+'.';
+    log('chunk-error',{
+      jobId:currentJob.id,
+      index:data.index,total:data.total,chars:data.chars,error:data.error
+    });
+    return;
+  }
   if(data.type==='worker-error'){
-    $('lab-status').textContent='Error Piper: '+(data.error?.message||data.error?.value||'desconocido');
+    const failure={
+      at:new Date().toISOString(),
+      jobId:currentJob.id,
+      voiceId:currentJob.voiceId,
+      textChars:currentJob.textChars,
+      prosody:currentJob.prosody,
+      prosodyMode:currentJob.prosodyMode,
+      pauses:currentJob.pauses,
+      completedChunks:currentJob.completed,
+      totalChunks:currentJob.total,
+      failedChunk:currentJob.failedChunk??null,
+      error:data.error
+    };
+    run.failures.push(failure);
+    const fragment=failure.failedChunk?.index;
+    $('lab-status').textContent='Error Piper'+(fragment?' en fragmento '+fragment+'/'+failure.totalChunks:'')+
+      ': '+(data.error?.message||data.error?.value||'desconocido')+
+      '. Podés reintentar con la misma configuración.';
     $('generate-sample').disabled=false;
-    log('worker-error',{error:data.error});
+    log('worker-error',failure);
     currentJob=null;
     return;
   }

@@ -64,6 +64,21 @@ self.onmessage=async(event)=>{
       return;
     }
 
+    if(data.type==='voice-config'){
+      const {requestId,voiceId}=data;
+      const reader=new TTS.CachedFileReader();
+      const blob=await reader.loadVoice(voiceId,true);
+      const config=JSON.parse(await blob.text());
+      self.postMessage({
+        type:'voice-config',
+        requestId,
+        voiceId,
+        inference:config.inference||{},
+        sampleRate:config.audio?.sample_rate??null
+      });
+      return;
+    }
+
     if(data.type==='compare-voices'){
       const {jobId,voices=[],text=''}=data;
       for(let i=0;i<voices.length;i++){

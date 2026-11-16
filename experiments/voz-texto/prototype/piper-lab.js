@@ -16,6 +16,8 @@ let worker=null;
 let voices=[];
 let currentJob=null;
 const sampleUrls=new Map();
+const voiceDefaults=new Map();
+let configRequest=0;
 
 const ORIGINAL={lengthScale:1,noiseScale:.667,noiseW:.8};
 const PRESETS={
@@ -75,12 +77,22 @@ function voiceLabel(v){
   const language=v.language?.name_native||v.language?.name_english||v.language?.code||v.language||v.locale||null;
   return[v.name||v.speaker||v.key,language,v.quality||v.model_quality].filter(Boolean).join(' · ');
 }
-function readProsody(){
+function sliderProsody(){
   return{
     lengthScale:Number($('length-scale').value),
     noiseScale:Number($('noise-scale').value),
     noiseW:Number($('noise-w').value)
   };
+}
+function readProsodyOverride(){
+  return $('use-model-defaults').checked?null:sliderProsody();
+}
+function effectiveProsody(){
+  const selected=$('lab-voice').value;
+  if($('use-model-defaults').checked){
+    return voiceDefaults.get(selected)||sliderProsody();
+  }
+  return sliderProsody();
 }
 function readPauses(){
   return{
@@ -99,15 +111,36 @@ function updateOutputs(){
   $('exclamation-out').value=$('exclamation-pause').value+' ms';
   $('paragraph-out').value=$('paragraph-pause').value+' ms';
   const voice=$('lab-voice').value||'sin voz';
-  const p=readProsody();
-  $('lab-config-summary').textContent=voice+' · '+p.lengthScale.toFixed(2)+' / '+p.noiseScale.toFixed(2)+' / '+p.noiseW.toFixed(2);
+  const p=effectiveProsody();
+  const mode=$('use-model-defaults').checked?'original':'override';
+  $('lab-config-summary').textContent=voice+' · '+mode+' · '+p.lengthScale.toFixed(2)+' / '+p.noiseScale.toFixed(2)+' / '+p.noiseW.toFixed(2);
 }
-function applyProsody(preset){
-  const p=PRESETS[preset]||ORIGINAL;
+function setSliderProsody(p){
   $('length-scale').value=p.lengthScale;
   $('noise-scale').value=p.noiseScale;
   $('noise-w').value=p.noiseW;
+}
+function updateDefaultsState(){
+  const useDefaults=$('use-model-defaults').checked;
+  ['length-scale','noise-scale','noise-w'].forEach(id=>$(id).disabled=useDefaults);
   updateOutputs();
+}
+function applyProsody(preset){
+  if(preset==='original'){
+    $('use-model-defaults').checked=true;
+    const defaults=voiceDefaults.get($('lab-voice').value);
+    if(defaults)setSliderProsody(defaults);
+  }else{
+    $('use-model-defaults').checked=false;
+    setSliderProsody(PRESETS[preset]||ORIGINAL);
+  }
+  updateDefaultsState();
+}
+function requestVoiceConfig(){
+  const voiceId=$('lab-voice').value;
+  if(!voiceId)return;
+  const requestId='voice-config-'+(++configRequest);
+  getWorker().postMessage({type:'voice-config',requestId,voiceId});
 }
 function applyNaturalPauses(){
   $('period-pause').value=NATURAL_PAUSES.period;
@@ -225,7 +258,7 @@ async function wavDuration(blob){
 }
 function createResultCard(sample,blob){
   const root=$('lab-results');
-  if(root.querySelector('.muted'))root.replaceChildren();
+  if(root.children.length===1&&root.firstElementChild?.classList.contains('muted'))root.replaceChildren();
   const card=document.createElement('article');
   card.className='lab-result-card';
 
@@ -234,7 +267,8 @@ function createResultCard(sample,blob){
 
   const params=document.createElement('p');
   params.className='muted';
-  params.textContent='length '+sample.prosody.lengthScale.toFixed(3)+
+  params.textContent=(sample.prosodyMode==='model-defaults'?'Original de la voz · ':'Override · ')+
+    'length '+sample.prosody.lengthScale.toFixed(3)+
     ' · noise '+sample.prosody.noiseScale.toFixed(3)+
     ' · noise_w '+sample.prosody.noiseW.toFixed(3)+
     ' · '+sample.audioSeconds.toFixed(1)+' s';
@@ -263,14 +297,13 @@ function createResultCard(sample,blob){
   reuse.textContent='Reutilizar parámetros';
   reuse.onclick=()=>{
     $('lab-voice').value=sample.voiceId;
-    $('length-scale').value=sample.prosody.lengthScale;
-    $('noise-scale').value=sample.prosody.noiseScale;
-    $('noise-w').value=sample.prosody.noiseW;
+    $('use-model-defaults').checked=sample.prosodyMode==='model-defaults';
+    setSliderProsody(sample.prosody);
     $('period-pause').value=sample.pauses.period;
     $('question-pause').value=sample.pauses.question;
     $('exclamation-pause').value=sample.pauses.exclamation;
     $('paragraph-pause').value=sample.pauses.paragraph;
-    updateOutputs();
+    updateDefaultsState();
   };
   actions.append(downloadBtn,reuse);
 
@@ -294,7 +327,26 @@ async function handleWorker(data){
     $('load-voices').disabled=false;
     $('lab-status').textContent=list.length+' voces candidatas cargadas.';
     updateOutputs();
+    requestVoiceConfig();
     log('voices-loaded',{count:list.length,selected:select.value});
+    return;
+  }
+  if(data.type==='voice-config'){
+    const inference=data.inference||{};
+    const defaults={
+      lengthScale:Number(inference.length_scale??1),
+      noiseScale:Number(inference.noise_scale??.667),
+      noiseW:Number(inference.noise_w??.8)
+    };
+    voiceDefaults.set(data.voiceId,defaults);
+    if(data.voiceId===$('lab-voice').value){
+      $('model-defaults').textContent='Valores originales: length_scale '+defaults.lengthScale+
+        ' · noise_scale '+defaults.noiseScale+' · noise_w '+defaults.noiseW+
+        (data.sampleRate?' · '+data.sampleRate+' Hz':'');
+      if($('use-model-defaults').checked)setSliderProsody(defaults);
+      updateDefaultsState();
+    }
+    log('voice-config',{voiceId:data.voiceId,defaults,sampleRate:data.sampleRate??null});
     return;
   }
   if(data.type==='engine-log'){log('engine-log',{message:data.message});return}
@@ -338,6 +390,7 @@ async function handleWorker(data){
       voiceId:currentJob.voiceId,
       textChars:currentJob.textChars,
       prosody:currentJob.prosody,
+      prosodyMode:currentJob.prosodyMode,
       pauses:currentJob.pauses,
       chunks:currentJob.total,
       inferenceMs:currentJob.inferenceMs,
@@ -364,19 +417,21 @@ $('generate-sample').onclick=()=>{
   const voiceId=$('lab-voice').value;
   const text=$('lab-text').value.trim();
   if(!voiceId||!text)return;
-  const prosody=readProsody();
+  const prosodyOverride=readProsodyOverride();
+  const prosody=effectiveProsody();
+  const prosodyMode=prosodyOverride===null?'model-defaults':'override';
   const pauses=readPauses();
   const chunks=buildChunks(text,pauses);
   currentJob={
     id:'lab-'+Date.now(),
-    voiceId,textChars:text.length,prosody,pauses,
+    voiceId,textChars:text.length,prosody,prosodyOverride,prosodyMode,pauses,
     total:chunks.length,completed:0,inferenceMs:0,parts:new Array(chunks.length)
   };
   $('generate-sample').disabled=true;
   $('lab-progress').value=0;
   $('lab-status').textContent='Inicializando '+voiceId+'…';
-  log('sample-start',{voiceId,textChars:text.length,prosody,pauses,chunks:chunks.length});
-  getWorker().postMessage({type:'synth',jobId:currentJob.id,voiceId,chunks,prosody});
+  log('sample-start',{voiceId,textChars:text.length,prosody,prosodyMode,pauses,chunks:chunks.length});
+  getWorker().postMessage({type:'synth',jobId:currentJob.id,voiceId,chunks,prosody:prosodyOverride});
 };
 $('clear-samples').onclick=()=>{
   for(const url of sampleUrls.values())URL.revokeObjectURL(url);
@@ -390,18 +445,26 @@ $('export-lab').onclick=()=>{
   download('piper-lab-'+Date.now()+'.json',JSON.stringify(run,null,2));
 };
 $('reset-piper').onclick=()=>applyProsody('original');
+$('use-model-defaults').addEventListener('change',updateDefaultsState);
 $('reset-pauses').onclick=applyNaturalPauses;
 document.querySelectorAll('[data-preset]').forEach(btn=>btn.onclick=()=>applyProsody(btn.dataset.preset));
 [
-  'length-scale','noise-scale','noise-w',
-  'period-pause','question-pause','exclamation-pause','paragraph-pause',
-  'lab-voice'
+  'period-pause','question-pause','exclamation-pause','paragraph-pause'
 ].forEach(id=>$(id).addEventListener('input',updateOutputs));
+['length-scale','noise-scale','noise-w'].forEach(id=>$(id).addEventListener('input',()=>{
+  $('use-model-defaults').checked=false;
+  updateDefaultsState();
+}));
+$('lab-voice').addEventListener('change',()=>{
+  if($('use-model-defaults').checked)$('model-defaults').textContent='Cargando valores originales…';
+  updateOutputs();
+  requestVoiceConfig();
+});
 $('lab-rate').addEventListener('change',()=>{
   document.querySelectorAll('#lab-results audio').forEach(a=>a.playbackRate=Number($('lab-rate').value));
 });
 
-applyProsody('original');
 applyNaturalPauses();
-updateOutputs();
+$('use-model-defaults').checked=true;
+updateDefaultsState();
 log('lab-ready',run.diagnostics);

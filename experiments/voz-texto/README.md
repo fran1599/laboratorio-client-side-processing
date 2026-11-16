@@ -21,7 +21,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.7
+## Prototipo 0.1.8
 
 Código: [`prototype/`](prototype/).
 
@@ -202,3 +202,12 @@ La etapa será prometedora si un equipo con 8 GB de RAM, sin depender de una GPU
 **Continuar en experimentación.**
 
 No publicar aún el prototipo en GitHub Pages ni marcarlo como validado hasta ejecutar la primera ronda, revisar tráfico de red y documentar limitaciones.
+
+
+### Evolución 0.1.8 — Laboratorio Piper
+
+Se incorpora un laboratorio separado del flujo principal para explorar parámetros de Piper de manera controlada. La interfaz permite variar prosodia interna y pausas externas, conservar múltiples muestras simultáneamente y exportar evidencia de cada configuración.
+
+La decisión de separar el laboratorio busca evitar que controles experimentales complejos contaminen la experiencia de uso cotidiano. Las configuraciones que demuestren una mejora estable podrán convertirse luego en presets del flujo principal.
+
+El laboratorio reutiliza la misma arquitectura local-first y el mismo Web Worker ya usados por el prototipo. No incorpora servidor Python ni JavaScript de interfaz adicional.

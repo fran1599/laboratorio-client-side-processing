@@ -54,6 +54,11 @@ La meta no es que la voz actúe, sino que resulte agradable, clara y menos mecá
       <button id="reset-piper">Restablecer</button>
     </div>
     <p class="muted">Estos controles modifican el JSON de configuración de la voz sólo en memoria. El archivo ONNX no se altera.</p>
+    <label class="check lab-defaults">
+      <input id="use-model-defaults" type="checkbox" checked>
+      Usar valores originales de la voz seleccionada
+    </label>
+    <p id="model-defaults" class="muted">Los valores reales se cargarán junto con la voz.</p>
 
     <div class="lab-sliders">
       <label>

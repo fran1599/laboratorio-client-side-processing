@@ -1,4 +1,4 @@
-# Prototipo 0.1.8
+# Prototipo 0.1.9
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -135,3 +135,18 @@ Permite:
 - exportar un JSON con todas las configuraciones, tiempos y métricas de las muestras.
 
 Los overrides de prosodia se aplican únicamente al JSON de configuración cargado en memoria mediante `CachedFileReader.customLoader`. El modelo ONNX no se modifica.
+
+## Perfil candidato y errores — 0.1.9
+
+El Laboratorio Piper incluye el botón **Claude · candidata 8**, derivado de la ejecución real del 15/11/2026:
+
+- `length_scale=0.89`
+- `noise_scale=1.10`
+- `noise_w=1.22`
+- pausas Natural+ (punto 380 ms, pregunta 560 ms, exclamación 460 ms, párrafo 760 ms).
+
+Este es un perfil experimental basado en una preferencia reportada, **no un preset definitivamente validado**.
+
+El JSON exportado incorpora `failures` y registra, para intentos fallidos posteriores a esta actualización, la voz, la prosodia, las pausas, los fragmentos completados, el índice del fragmento fallido y el error original. Los eventos del Worker se procesan secuencialmente para impedir que el ensamblado se adelante a la preparación de algún fragmento.
+
+En la ejecución anterior hubo tres excepciones numéricas tras el primer fragmento, todas con `noise_w=1.50`, aunque luego se sintetizó con éxito tras reintentar. No se ha demostrado causalidad.

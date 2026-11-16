@@ -1,4 +1,4 @@
-# Prototipo 0.1.7
+# Prototipo 0.1.8
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -114,3 +114,24 @@ Perfiles de prosodia experimentales para Claude high:
 El override se realiza mediante el `customLoader` de `CachedFileReader`: se intercepta únicamente el JSON de configuración, se modifican los valores de `inference` en memoria y se conserva el mismo ONNX.
 
 Esta técnica funciona estructuralmente con otras voces Piper, pero los valores deben evaluarse por voz.
+
+
+## Laboratorio Piper
+
+Desde 0.1.8 el prototipo incorpora una segunda pestaña/página: `piper-lab.html`.
+
+El laboratorio está separado del flujo principal de voz ↔ texto y reutiliza el mismo Web Worker Piper. No agrega backend ni dependencias de interfaz externas.
+
+Permite:
+
+- elegir cualquiera de las voces Piper disponibles;
+- editar libremente `length_scale`, `noise_scale` y `noise_w`;
+- volver a los valores originales o aplicar los presets Natural A/B;
+- ajustar en milisegundos las pausas posteriores a punto, pregunta, exclamación y cambio de párrafo;
+- generar múltiples muestras que permanecen visibles lado a lado;
+- reutilizar los parámetros de una muestra;
+- modificar la velocidad de reproducción sin volver a sintetizar;
+- descargar cada WAV;
+- exportar un JSON con todas las configuraciones, tiempos y métricas de las muestras.
+
+Los overrides de prosodia se aplican únicamente al JSON de configuración cargado en memoria mediante `CachedFileReader.customLoader`. El modelo ONNX no se modifica.

@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.7', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
+const run = { version:'0.1.8', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });

@@ -1,11 +1,19 @@
 [
   {
-    "slug": "voz-texto",
-    "title": "Voz y texto",
-    "description": "Prueba experimental de transcripción con Whisper Tiny y síntesis local Piper, con reproducción progresiva y laboratorio de prosodia. Privacidad y compatibilidad por completar.",
+    "slug": "texto-voz",
+    "title": "Texto a voz · Piper",
+    "description": "Convertí texto en voz local, con reproducción progresiva, voces en español y un perfil natural de Claude.",
     "status": "in-progress",
     "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/voz-texto",
     "demo": "./experimentos/voz-texto/"
+  },
+  {
+    "slug": "voz-texto",
+    "title": "Audio a texto · Whisper",
+    "description": "Transcripción experimental de audio local con Whisper Tiny. Permite grabar, subir archivos y comparar aceleración WebGPU o CPU/WASM.",
+    "status": "in-progress",
+    "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/voz-texto",
+    "demo": "./experimentos/voz-texto/stt.html"
   },
   {
     "slug": "distrito-luz",

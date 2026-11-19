@@ -4,89 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Prueba local de voz</title>
+  <title>Texto a voz</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <main class="shell">
-  <nav class="prototype-tabs" aria-label="Secciones del experimento">
-    <a href="./index.html" class="active" aria-current="page">Voz ↔ texto</a>
+  <nav class="prototype-tabs" aria-label="Herramientas de voz">
+    <a href="./index.html" class="active" aria-current="page">Texto a voz</a>
+    <a href="./stt.html">Audio a texto</a>
     <a href="./piper-lab.html">Laboratorio Piper</a>
   </nav>
-  <header class="hero">
-    <p class="eyebrow">Experimento 0.1.10 · local-first</p>
-    <h1>Voz ↔ texto en el navegador</h1>
-    <p>El prototipo intenta procesar el contenido en este dispositivo. Descarga código y modelos desde Internet, pero no configura ningún servidor de inferencia ni fallback remoto; el tráfico debe inspeccionarse antes de afirmar privacidad.</p>
-    <div class="notice"><strong>Estado:</strong> prototipo no validado. Antes de afirmar privacidad u operación offline hay que inspeccionar tráfico de red y probar hardware real.</div>
+  <header class="hero compact-hero">
+    <p class="eyebrow">Experimento 0.2.0 · procesamiento local</p>
+    <h1>Texto a voz</h1>
+    <p>Pegá un texto, elegí la voz y escuchá el audio mientras se genera. Las configuraciones avanzadas permanecen en el Laboratorio Piper.</p>
   </header>
-
   <section class="card">
-    <div class="head"><div><p class="eyebrow">Paso 0</p><h2>Diagnóstico</h2></div><button id="refresh">Actualizar</button></div>
-    <div id="diag" class="grid"></div>
-    <p class="muted">RAM y CPU son datos aproximados que el navegador puede limitar por privacidad. No existe una lectura portable de VRAM.</p>
-  </section>
-
-  <section class="card">
-    <div class="head"><div><p class="eyebrow">Prueba 1</p><h2>Speech-to-Text</h2></div><span class="pill">Whisper Tiny</span></div>
-    <div class="controls">
-      <label>Motor<select id="device"><option value="auto">Automático</option><option value="webgpu">WebGPU</option><option value="wasm">CPU / WASM</option></select></label>
-      <label>Modelo<select id="model"><option value="onnx-community/whisper-tiny">whisper-tiny multilingüe</option></select></label>
-    </div>
-    <div class="actions">
-      <button id="record">Grabar micrófono</button>
-      <button id="stop" disabled>Detener</button>
-      <label class="filebtn">Elegir audio<input id="file" type="file" accept="audio/*"></label>
-    </div>
-    <audio id="preview" controls hidden></audio>
-    <p id="stt-status" class="status">Sin audio seleccionado.</p>
-    <progress id="stt-progress" max="100" value="0"></progress>
-    <button id="transcribe" class="primary" disabled>Transcribir localmente</button>
-    <textarea id="transcript" rows="9" placeholder="La transcripción aparecerá acá."></textarea>
-    <div class="actions"><button id="copy">Copiar</button><button id="txt">Descargar TXT</button></div>
-    <div id="stt-metrics" class="metrics"></div>
-  </section>
-
-  <section class="card">
-    <div class="head"><div><p class="eyebrow">Prueba 2</p><h2>Text-to-Speech</h2></div><span class="pill">Piper</span></div>
+    <div class="head"><div><p class="eyebrow">Texto a voz</p><h2>Convertir texto en audio</h2></div><span class="pill">Piper</span></div>
     <p class="muted">La primera ejecución descarga la voz y otros recursos. Piper puede conservarlos en almacenamiento privado del navegador.</p>
     <textarea id="tts-text" rows="6">Hola. Esta es una prueba de síntesis de voz ejecutada localmente en el navegador.</textarea>
-    <div class="controls">
-      <label>Voz<select id="voice"><option value="">Cargar voces disponibles…</option></select></label>
-      <label>Modo de lectura
-        <select id="reading-mode">
-          <option value="natural" selected>Natural — preparar texto y pausas</option>
-          <option value="literal">Literal — conservar texto</option>
-        </select>
-      </label>
-      <label>Perfil de pausas
-        <select id="pause-profile">
-          <option value="compact">Compacto</option>
-          <option value="naturalPlus" selected>Natural+ — preguntas y puntos más respirados</option>
-          <option value="marked">Marcado</option>
-        </select>
-      </label>
-      <label>Prosodia experimental
-        <select id="prosody-preset">
-          <option value="original">Original de la voz</option>
-          <option value="naturalA">Claude Natural A — variación leve</option>
-          <option value="naturalB">Claude Natural B — más expresiva</option>
-          <option value="claudeCandidate8" selected>Claude · candidata 8 — perfil preferido experimental</option>
-        </select>
+    <div class="controls quick-voice">
+      <label>Voz
+        <select id="voice"><option value="">Buscando voces disponibles…</option></select>
       </label>
     </div>
-    <p id="prosody-values" class="muted">Valores originales de la voz</p>
-    <p class="muted">La candidata 8 usa length_scale 0,89; noise_scale 1,10; noise_w 1,22. Fue preferida en una prueba corta y todavía requiere validación sostenida. Al elegirla se selecciona Claude high cuando está disponible. Los demás perfiles también son experimentales.</p>
-    <div class="controls">
-      <label class="check"><input id="progressive-play" type="checkbox" checked> Reproducir en cuanto haya audio disponible</label>
-    </div>
-    <details class="prep-preview">
-      <summary>Ver texto preparado para voz</summary>
-      <p id="prep-summary" class="muted">Todavía no se preparó el texto.</p>
-      <textarea id="prepared-text" rows="7" readonly></textarea>
-      <p class="muted">El modo Natural elimina marcas visuales de Markdown, evita leer URLs completas y conserva la puntuación útil para la voz. El texto original no se modifica.</p>
-    </details>
+    <p class="muted">La opción «Claude · lectura natural» aplica automáticamente el perfil que elegiste. Las demás voces utilizan su configuración original, con lectura natural y pausas equilibradas.</p>
     <p id="tts-status" class="status">Motor no inicializado.</p>
-    <div class="actions"><button id="voices">Cargar voces</button><button id="synth" class="primary" disabled>Sintetizar localmente</button></div>
+    <div class="actions"><button id="voices">Actualizar voces</button><button id="synth" class="primary" disabled>Generar audio</button></div>
 
     <div id="tts-job" class="job-panel" hidden>
       <div class="job-title-row">
@@ -141,41 +85,21 @@
       <div class="actions"><button id="download-wav" disabled>Descargar WAV completo</button></div>
       <p class="muted">Mientras la conversión sigue activa, sólo se puede recorrer el audio ya generado. Al finalizar queda disponible el WAV completo.</p>
     </div>
-    <section class="voice-lab">
-      <div class="head">
-        <div>
-          <p class="eyebrow">Prueba A/B</p>
-          <h3>Comparador de voces</h3>
-        </div>
-        <span class="pill">Mismo texto · distinta voz</span>
-      </div>
-      <p class="muted">Esta prueba mantiene fijo el texto preparado y cambia únicamente la voz. Para reducir tiempo y descarga, conviene usar una muestra de entre 250 y 500 caracteres.</p>
-      <textarea id="compare-text" rows="5">Hoy quiero probar cómo suena esta voz en una lectura cotidiana. ¿Respeta una pregunta? También debería resolver bien una enumeración: primero, claridad; segundo, ritmo; y tercero, naturalidad. Al final de este párrafo tendría que aparecer una pausa perceptible, pero no exagerada.</textarea>
-      <div class="actions">
-        <button id="compare-from-main">Usar muestra del texto actual</button>
-      </div>
-      <div id="compare-voices" class="voice-options">
-        <span class="muted">Cargá las voces para habilitar la comparación.</span>
-      </div>
-      <div class="actions">
-        <button id="compare-generate" class="primary" disabled>Generar comparación A/B</button>
-      </div>
-      <p id="compare-status" class="status">Sin comparación iniciada.</p>
-      <progress id="compare-progress" max="100" value="0"></progress>
-      <div id="compare-results" class="compare-results"></div>
-      <p class="muted">Puntuá cada voz del 1 al 5 en naturalidad, claridad y timbre, y marcá una favorita. La valoración se incorpora al JSON experimental.</p>
-    </section>
-
-    <div id="tts-metrics" class="metrics"></div>
+    <details class="technical-details">
+      <summary>Detalle técnico de la conversión</summary>
+      <div id="tts-metrics" class="metrics"></div>
+    </details>
   </section>
 
-  <section class="card">
-    <div class="head"><div><p class="eyebrow">Evidencia</p><h2>Resultado experimental</h2></div></div>
-    <p class="muted">El JSON contiene capacidades, tiempos y errores. No incluye audio, texto de entrada ni transcripción.</p>
-    <button id="export">Descargar resultado JSON</button>
+
+  <details class="card technical-details">
+    <summary>Datos técnicos y diagnóstico de esta ejecución</summary>
+    <p class="muted">Los resultados JSON no incluyen audio, texto de entrada ni transcripciones. La privacidad del tráfico sigue pendiente de validar.</p>
+    <button id="export">Descargar JSON de síntesis</button>
     <pre id="log"></pre>
-  </section>
+  </details>
+  <p class="muted demo-disclaimer">Prueba experimental. Se descargan código y modelos desde Internet; evitá datos sensibles mientras no se audite el tráfico de red.</p>
 </main>
-<script type="module" src="./app.js"></script>
+<script type="module" src="./tts.js"></script>
 </body>
 </html>

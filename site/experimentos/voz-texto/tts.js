@@ -1,11 +1,7 @@
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 
-env.allowLocalModels = false;
-env.allowRemoteModels = true;
-env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.10', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
+const run = { version:'0.2.0', startedAt:new Date().toISOString(), diagnostics:{hardwareConcurrency:navigator.hardwareConcurrency??null,deviceMemoryGB:navigator.deviceMemory??null,secureContext:window.isSecureContext}, tts:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -216,20 +212,6 @@ function buildSpeechPlan(text,mode='natural',maxLength=400,pauseProfile='natural
     :buildNaturalSpeechPlan(text,maxLength,pauseProfile);
 }
 
-function refreshSpeechPreview(){
-  const text=$('tts-text')?.value??'';
-  const mode=$('reading-mode')?.value??'natural';
-  const pauseProfile=$('pause-profile')?.value??'naturalPlus';
-  const plan=buildSpeechPlan(text,mode,400,pauseProfile);
-  if($('prepared-text'))$('prepared-text').value=plan.preparedText;
-  if($('prep-summary')){
-    $('prep-summary').textContent=
-      (mode==='natural'?'Lectura natural':'Lectura literal')+
-      ' · '+text.length+' caracteres originales · '+plan.preparedText.length+
-      ' preparados · '+plan.chunks.length+' fragmentos · pausas '+($('pause-profile')?.selectedOptions?.[0]?.textContent||'');
-  }
-  return plan;
-}
 function readWavHeader(buffer){
   if(buffer.byteLength<44) throw new Error('WAV incompleto.');
   const view=new DataView(buffer);
@@ -298,136 +280,6 @@ async function mergeWavBlobs(blobs){
   }
   return new Blob([out],{type:'audio/wav'});
 }
-async function gpuInfo(){
-  if(!navigator.gpu) return {supported:false};
-  try{
-    const adapter=await navigator.gpu.requestAdapter();
-    if(!adapter) return {supported:false};
-    const i=adapter.info||{};
-    return {supported:true,vendor:i.vendor||null,architecture:i.architecture||null,device:i.device||null,description:i.description||null};
-  }catch(error){ return {supported:false,error:String(error)} }
-}
-async function diagnostics(){
-  const gpu=await gpuInfo();
-  const d={
-    secureContext:window.isSecureContext,
-    hardwareConcurrency:navigator.hardwareConcurrency??null,
-    deviceMemoryGB:navigator.deviceMemory??null,
-    webgpu:gpu,
-    wasm:typeof WebAssembly==='object',
-    microphone:!!navigator.mediaDevices?.getUserMedia,
-    cacheApi:'caches' in window,
-    jsHeapLimit:performance.memory?.jsHeapSizeLimit??null,
-    userAgent:navigator.userAgent
-  };
-  run.diagnostics=d;
-  const el=$('diag'); el.replaceChildren();
-  metric(el,'Contexto seguro',d.secureContext?'Sí':'No');
-  metric(el,'CPU lógica',d.hardwareConcurrency==null?'No informada':String(d.hardwareConcurrency));
-  metric(el,'RAM aproximada',d.deviceMemoryGB==null?'No informada':d.deviceMemoryGB+' GB');
-  metric(el,'WebGPU',d.webgpu.supported?'Disponible':'No disponible');
-  metric(el,'WebAssembly',d.wasm?'Disponible':'No disponible');
-  metric(el,'Micrófono',d.microphone?'Disponible':'No disponible');
-  metric(el,'Cache API',d.cacheApi?'Disponible':'No disponible');
-  metric(el,'Límite heap JS',d.jsHeapLimit?bytes(d.jsHeapLimit):'No informado');
-  log('diagnostics',{hardwareConcurrency:d.hardwareConcurrency,deviceMemoryGB:d.deviceMemoryGB,webgpu:d.webgpu.supported});
-}
-$('refresh').onclick=diagnostics;
-await diagnostics();
-
-// Audio capture / selection
-let blob=null, recorder=null, stream=null, chunks=[];
-$('record').onclick=async()=>{
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    chunks=[]; recorder=new MediaRecorder(stream);
-    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
-    recorder.onstop=()=>{
-      blob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});
-      const p=$('preview'); p.src=URL.createObjectURL(blob); p.hidden=false;
-      $('transcribe').disabled=false; stream.getTracks().forEach(t=>t.stop());
-      $('stt-status').textContent='Grabación lista.';
-      log('recording-ready',{bytes:blob.size,type:blob.type});
-    };
-    recorder.start(); $('record').disabled=true; $('stop').disabled=false;
-    $('stt-status').textContent='Grabando localmente…'; log('recording-started');
-  }catch(error){ $('stt-status').textContent='Error de micrófono: '+error.message; log('microphone-error',{error:String(error)}) }
-};
-$('stop').onclick=()=>{
-  if(recorder?.state==='recording') recorder.stop();
-  $('record').disabled=false; $('stop').disabled=true;
-};
-$('file').onchange=e=>{
-  const f=e.target.files?.[0]; if(!f)return;
-  blob=f; const p=$('preview'); p.src=URL.createObjectURL(f); p.hidden=false;
-  $('transcribe').disabled=false;
-  $('stt-status').textContent='Audio listo ('+bytes(f.size)+').';
-  log('audio-selected',{bytes:f.size,type:f.type||null});
-};
-
-async function audio16k(input){
-  const raw=await input.arrayBuffer();
-  const ctx=new AudioContext();
-  const decoded=await ctx.decodeAudioData(raw.slice(0));
-  const outCtx=new OfflineAudioContext(1,Math.ceil(decoded.duration*16000),16000);
-  const src=outCtx.createBufferSource(); src.buffer=decoded; src.connect(outCtx.destination); src.start();
-  const rendered=await outCtx.startRendering(); await ctx.close();
-  return {wave:new Float32Array(rendered.getChannelData(0)),duration:decoded.duration,sourceRate:decoded.sampleRate};
-}
-
-let transcriber=null, transcriberKey=null;
-async function getTranscriber(){
-  const requested=$('device').value;
-  const device=requested==='auto'?(run.diagnostics.webgpu?.supported?'webgpu':'wasm'):requested;
-  if(device==='webgpu'&&!run.diagnostics.webgpu?.supported) throw new Error('WebGPU no está disponible.');
-  const model=$('model').value, key=model+':'+device;
-  if(transcriber&&transcriberKey===key) return {pipe:transcriber,model,device,loadMs:0,reused:true};
-  transcriber=null; transcriberKey=null; $('stt-progress').value=0;
-  $('stt-status').textContent='Cargando '+model+' con '+device+'…';
-  const start=performance.now();
-  transcriber=await pipeline('automatic-speech-recognition',model,{
-    device,
-    progress_callback:p=>{
-      if(Number.isFinite(p.progress)) $('stt-progress').value=Math.max(0,Math.min(100,p.progress));
-    }
-  });
-  transcriberKey=key;
-  return {pipe:transcriber,model,device,loadMs:performance.now()-start,reused:false};
-}
-
-$('transcribe').onclick=async()=>{
-  if(!blob)return; $('transcribe').disabled=true;
-  try{
-    const heapBefore=performance.memory?.usedJSHeapSize??null;
-    $('stt-status').textContent='Decodificando audio…';
-    const a=await audio16k(blob);
-    const engine=await getTranscriber();
-    $('stt-status').textContent='Transcribiendo localmente…';
-    const start=performance.now();
-    const out=await engine.pipe(a.wave,{
-      language:'spanish',task:'transcribe',chunk_length_s:29,stride_length_s:5,return_timestamps:true
-    });
-    const inferenceMs=performance.now()-start;
-    $('transcript').value=(out.text||'').trim();
-    $('stt-progress').value=100; $('stt-status').textContent='Transcripción terminada.';
-    const result={
-      at:new Date().toISOString(),model:engine.model,device:engine.device,
-      modelLoadMs:Math.round(engine.loadMs),pipelineReuse:engine.reused,
-      inferenceMs:Math.round(inferenceMs),audioSeconds:Number(a.duration.toFixed(2)),
-      realtimeFactor:Number((inferenceMs/1000/a.duration).toFixed(3)),
-      sourceSampleRate:a.sourceRate,workingSampleRate:16000,
-      jsHeapBefore:heapBefore,jsHeapAfter:performance.memory?.usedJSHeapSize??null,
-      outputChars:(out.text||'').length,chunks:out.chunks?.length||0
-    };
-    run.stt.push(result); renderMetrics('stt-metrics',result); log('stt-complete',result);
-  }catch(error){
-    $('stt-status').textContent='Error STT: '+error.message;
-    log('stt-error',{error:String(error)});
-  }finally{$('transcribe').disabled=false}
-};
-$('copy').onclick=()=>navigator.clipboard.writeText($('transcript').value);
-$('txt').onclick=()=>download('transcripcion.txt',$('transcript').value);
-
 // Piper TTS — generación en Worker + reproducción progresiva
 let ttsWorker=null;
 let ttsJob=null;
@@ -438,9 +290,6 @@ let streamItems=[];
 let streamIndex=-1;
 let playRequested=false;
 let waitingForChunk=false;
-let availableTtsVoices=[];
-let compareJob=null;
-const compareAudioUrls=new Map();
 
 function getTtsWorker(){
   if(ttsWorker)return ttsWorker;
@@ -481,122 +330,6 @@ function voiceLabel(v){
   const quality=v.quality||v.model_quality||null;
   return[name,language,quality].filter(Boolean).join(' · ');
 }
-function renderVoiceCompareOptions(list){
-  availableTtsVoices=list;
-  const root=$('compare-voices');
-  root.replaceChildren();
-  const preferred=['es_MX-claude-high','es_ES-davefx-medium','es_ES-sharvard-medium','es_ES-carlfm-x_low'];
-  for(const voice of list){
-    const label=document.createElement('label');
-    label.className='voice-option';
-    const input=document.createElement('input');
-    input.type='checkbox';
-    input.value=voice.key;
-    input.checked=preferred.includes(voice.key);
-    const text=document.createElement('span');
-    text.textContent=voiceLabel(voice);
-    label.append(input,text);
-    root.append(label);
-  }
-  $('compare-generate').disabled=!list.length;
-}
-function selectedCompareVoices(){
-  return [...document.querySelectorAll('#compare-voices input[type="checkbox"]:checked')].map(x=>x.value);
-}
-function compactCompareText(text,maxLength=500){
-  const prepared=stripMarkdownForSpeech(text).replace(/\n+/g,' ').trim();
-  if(prepared.length<=maxLength)return prepared;
-  const cut=prepared.slice(0,maxLength);
-  const boundary=Math.max(cut.lastIndexOf('. '),cut.lastIndexOf('? '),cut.lastIndexOf('! '),cut.lastIndexOf('; '));
-  return (boundary>180?cut.slice(0,boundary+1):cut).trim();
-}
-function compareVoiceName(voiceId){
-  const voice=availableTtsVoices.find(v=>v.key===voiceId);
-  return voice?voiceLabel(voice):voiceId;
-}
-function setComparisonRating(voiceId,field,value){
-  const item=compareJob?.results?.find(x=>x.voiceId===voiceId);
-  if(!item)return;
-  item.ratings=item.ratings||{};
-  item.ratings[field]=value===''?null:Number(value);
-  persistComparisonSnapshot();
-}
-function setComparisonFavorite(voiceId){
-  if(!compareJob)return;
-  compareJob.favorite=voiceId;
-  persistComparisonSnapshot();
-}
-function persistComparisonSnapshot(){
-  if(!compareJob)return;
-  const snapshot={
-    at:new Date().toISOString(),
-    jobId:compareJob.id,
-    sampleChars:compareJob.text.length,
-    voices:compareJob.voices,
-    completed:compareJob.completed,
-    favorite:compareJob.favorite||null,
-    results:compareJob.results.map(x=>({
-      voiceId:x.voiceId,
-      inferenceMs:x.inferenceMs,
-      wavBytes:x.wavBytes,
-      ratings:x.ratings||{naturalness:null,clarity:null,timbre:null}
-    }))
-  };
-  const index=run.voiceComparisons.findIndex(x=>x.jobId===snapshot.jobId);
-  if(index>=0)run.voiceComparisons[index]=snapshot;
-  else run.voiceComparisons.push(snapshot);
-}
-function renderCompareResult(data){
-  const root=$('compare-results');
-  const card=document.createElement('article');
-  card.className='voice-result';
-  card.dataset.voiceId=data.voiceId;
-
-  const title=document.createElement('h4');
-  title.textContent=compareVoiceName(data.voiceId);
-
-  const meta=document.createElement('p');
-  meta.className='muted';
-  meta.textContent='Inferencia: '+(data.inferenceMs/1000).toFixed(1)+' s · '+bytes(data.wav.size||0);
-
-  const audio=document.createElement('audio');
-  audio.controls=true;
-  audio.preload='metadata';
-  const old=compareAudioUrls.get(data.voiceId);
-  if(old)URL.revokeObjectURL(old);
-  const url=URL.createObjectURL(data.wav);
-  compareAudioUrls.set(data.voiceId,url);
-  audio.src=url;
-
-  const ratings=document.createElement('div');
-  ratings.className='rating-grid';
-  for(const [field,labelText] of [
-    ['naturalness','Naturalidad'],
-    ['clarity','Claridad'],
-    ['timbre','Timbre']
-  ]){
-    const label=document.createElement('label');
-    label.textContent=labelText;
-    const select=document.createElement('select');
-    select.innerHTML='<option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>';
-    select.addEventListener('change',()=>setComparisonRating(data.voiceId,field,select.value));
-    label.append(select);
-    ratings.append(label);
-  }
-
-  const favorite=document.createElement('label');
-  favorite.className='favorite-option';
-  const radio=document.createElement('input');
-  radio.type='radio';
-  radio.name='voice-favorite';
-  radio.value=data.voiceId;
-  radio.addEventListener('change',()=>setComparisonFavorite(data.voiceId));
-  favorite.append(radio,document.createTextNode(' Marcar como favorita'));
-
-  card.append(title,meta,audio,ratings,favorite);
-  root.append(card);
-}
-
 function formatDuration(seconds){
   if(!Number.isFinite(seconds)||seconds<0)return'—';
   const rounded=Math.max(0,Math.round(seconds));
@@ -731,7 +464,7 @@ async function enqueueStreamChunk(blob,pauseAfterMs=0){
   if(ttsJob)ttsJob.generatedSeconds+=duration;
   $('player').hidden=false;
   if(streamIndex<0){
-    playRequested=$('progressive-play').checked;
+    playRequested=true;
     loadStreamItem(0,0,playRequested);
   }else if(waitingForChunk&&playRequested){
     loadStreamItem(streamIndex+1,0,true);
@@ -812,16 +545,24 @@ async function handleTtsWorkerMessage(data){
     ));
     const list=es.length?es:all;
     const select=$('voice');select.replaceChildren();
+    const hasClaude=list.some(v=>v.key==='es_MX-claude-high');
+    if(hasClaude){
+      const favorite=document.createElement('option');
+      favorite.value='preset:claude-candidate-8';
+      favorite.textContent='Claude · lectura natural (perfil favorito)';
+      select.append(favorite);
+    }
+    const originals=document.createElement('optgroup');
+    originals.label='Voces originales';
     for(const v of list){
       const option=document.createElement('option');
       option.value=v.key;
       option.textContent=voiceLabel(v);
-      select.append(option);
+      originals.append(option);
     }
-    const preferred=list.find(v=>v.key==='es_MX-claude-high') || list.find(v=>/es_AR.*daniela|daniela/i.test([v.key,v.name].filter(Boolean).join(' ')));
-    if(preferred)select.value=preferred.key;
+    select.append(originals);
+    if(hasClaude)select.value='preset:claude-candidate-8';
     $('synth').disabled=!list.length;
-    renderVoiceCompareOptions(list);
     $('voices').disabled=false;
     $('tts-status').textContent=list.length?list.length+' voces candidatas.':'No se encontraron voces.';
     log('tts-voices',{count:list.length,selected:select.value||null,sampleKeys:list.slice(0,5).map(v=>v.key)});
@@ -844,40 +585,6 @@ async function handleTtsWorkerMessage(data){
       $('tts-current').textContent=percent+'% de '+bytes(p.total);
       $('tts-chunk-progress').value=percent;
     }
-    return;
-  }
-  if(data.type==='compare-start'&&compareJob&&data.jobId===compareJob.id){
-    $('compare-status').textContent='Generando '+data.index+' de '+data.total+': '+compareVoiceName(data.voiceId);
-    $('compare-progress').value=Math.round(((data.index-1)/data.total)*100);
-    return;
-  }
-  if(data.type==='compare-result'&&compareJob&&data.jobId===compareJob.id){
-    const item={
-      voiceId:data.voiceId,
-      inferenceMs:data.inferenceMs,
-      wavBytes:data.wav.size??null,
-      ratings:{naturalness:null,clarity:null,timbre:null}
-    };
-    compareJob.results.push(item);
-    compareJob.completed=compareJob.results.length;
-    renderCompareResult(data);
-    $('compare-progress').value=Math.round((compareJob.completed/compareJob.voices.length)*100);
-    $('compare-status').textContent='Listas '+compareJob.completed+' de '+compareJob.voices.length+' voces.';
-    log('voice-compare-result',{voiceId:data.voiceId,inferenceMs:data.inferenceMs,wavBytes:data.wav.size??null});
-    persistComparisonSnapshot();
-    return;
-  }
-  if(data.type==='compare-error'&&compareJob&&data.jobId===compareJob.id){
-    log('voice-compare-error',{voiceId:data.voiceId,error:data.error});
-    $('compare-status').textContent='Falló '+compareVoiceName(data.voiceId)+'. Continúa la comparación…';
-    return;
-  }
-  if(data.type==='compare-complete'&&compareJob&&data.jobId===compareJob.id){
-    $('compare-progress').value=100;
-    $('compare-status').textContent='Comparación lista. Escuchá y puntuá cada voz.';
-    $('compare-generate').disabled=false;
-    persistComparisonSnapshot();
-    log('voice-compare-complete',{voices:compareJob.voices,completed:compareJob.completed});
     return;
   }
   if(!ttsJob||data.jobId!==ttsJob.id)return;
@@ -944,7 +651,7 @@ async function handleTtsWorkerMessage(data){
       wavBytes:currentWav.size,
       audioSeconds:Number(audioSeconds.toFixed(2)),
       realtimeFactor:Number((ttsJob.completedInferenceMs/1000/audioSeconds).toFixed(3)),
-      progressivePlayback:$('progressive-play').checked,
+      progressivePlayback:true,
       jsHeapBefore:ttsJob.heapBefore,
       jsHeapAfter:performance.memory?.usedJSHeapSize??null
     };
@@ -959,57 +666,17 @@ async function handleTtsWorkerMessage(data){
   }
 }
 
-$('compare-from-main').onclick=()=>{
-  $('compare-text').value=compactCompareText($('tts-text').value,500);
-};
-$('compare-generate').onclick=()=>{
-  const voices=selectedCompareVoices();
-  const text=compactCompareText($('compare-text').value,500);
-  if(!voices.length||!text)return;
-  for(const url of compareAudioUrls.values())URL.revokeObjectURL(url);
-  compareAudioUrls.clear();
-  $('compare-results').replaceChildren();
-  $('compare-generate').disabled=true;
-  $('compare-progress').value=0;
-  $('compare-status').textContent='Preparando comparación…';
-  compareJob={
-    id:'compare-'+Date.now(),
-    text,
-    voices,
-    results:[],
-    completed:0,
-    favorite:null
-  };
-  log('voice-compare-start',{voices,textChars:text.length});
-  getTtsWorker().postMessage({type:'compare-voices',jobId:compareJob.id,voices,text});
-};
-
-$('tts-text').addEventListener('input',refreshSpeechPreview);
-$('reading-mode').addEventListener('change',refreshSpeechPreview);
-$('pause-profile').addEventListener('change',refreshSpeechPreview);
-$('prosody-preset').addEventListener('change',()=>{
-  const key=$('prosody-preset').value;
-  if(key==='claudeCandidate8'){
-    const claude=[...$('voice').options].find(o=>o.value==='es_MX-claude-high');
-    if(claude)$('voice').value=claude.value;
-  }
-  const p=PROSODY_PRESETS[key];
-  $('prosody-values').textContent=p
-    ?'length_scale '+p.lengthScale+' · noise_scale '+p.noiseScale+' · noise_w '+p.noiseW
-    :'Valores originales de la voz';
-});
-refreshSpeechPreview();
-$('prosody-preset').dispatchEvent(new Event('change'));
-
 $('synth').onclick=()=>{
-  const voiceId=$('voice').value;
+  const selectedVoice=$('voice').value;
   const text=$('tts-text').value.trim();
-  if(!voiceId||!text)return;
-  const readingMode=$('reading-mode').value;
-  const pauseProfile=$('pause-profile').value;
-  const prosodyPreset=$('prosody-preset').value;
-  const prosody=PROSODY_PRESETS[prosodyPreset];
-  const plan=buildSpeechPlan(text,readingMode,400,pauseProfile);
+  if(!selectedVoice||!text)return;
+  const isFavorite=selectedVoice==='preset:claude-candidate-8';
+  const voiceId=isFavorite?'es_MX-claude-high':selectedVoice;
+  const readingMode='natural';
+  const pauseProfile='naturalPlus';
+  const prosodyPreset=isFavorite?'claudeCandidate8':'original';
+  const prosody=isFavorite?PROSODY_PRESETS.claudeCandidate8:null;
+  const plan=buildNaturalSpeechPlan(text,400,pauseProfile);
   const chunks=plan.chunks;
   if(!chunks.length)return;
   resetStream();
@@ -1048,5 +715,7 @@ $('synth').onclick=()=>{
 
 $('export').onclick=()=>{
   run.finishedAt=new Date().toISOString();
-  download('voz-texto-'+Date.now()+'.json',JSON.stringify(run,null,2),'application/json');
+  download('tts-'+Date.now()+'.json',JSON.stringify(run,null,2),'application/json');
 };
+// Catálogo al iniciar: no requiere un paso manual para usar la herramienta.
+$('voices').click();

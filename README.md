@@ -10,7 +10,8 @@ Exploraciones reproducibles de tecnologías que procesan información **en el na
 
 | Estado | Prueba | Propósito | Acceso |
 | --- | --- | --- | --- |
-| En curso | [Voz ↔ texto](experiments/voz-texto/README.md) | Probar Whisper y Piper, reproducción progresiva y prosodia. | [Documentación](experiments/voz-texto/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/) · [Laboratorio Piper](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html) |
+| En curso | [Texto a voz · Piper](experiments/voz-texto/README.md) | Síntesis progresiva local, selección de voces y perfil favorito de Claude. | [Documentación](experiments/voz-texto/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/) · [Laboratorio Piper](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html) |
+| En curso | [Audio a texto · Whisper](experiments/voz-texto/README.md) | Transcripción local experimental desde micrófono o archivo. | [Documentación](experiments/voz-texto/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/stt.html) |
 | Con limitaciones | [Distrito Luz](experiments/distrito-luz/README.md) | Medir el rendimiento de un videojuego Canvas 2D en móviles. | [Documentación](experiments/distrito-luz/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/distrito-luz/) |
 
 Cada experimento comienza con enlaces de retorno a este índice y un índice de sus secciones.
@@ -33,14 +34,15 @@ Cada experimento comienza con enlaces de retorno a este índice y un índice de 
 
 ## Experimento de voz en curso
 
-**Voz ↔ texto** ofrece una demostración pública de Piper y Whisper. Las pruebas de síntesis en equipos reales resultaron prometedoras; la privacidad de red, operación offline y transcripción todavía no están completamente validadas.
+**Texto a voz (Piper)** y **Audio a texto (Whisper)** tienen interfaces y controladores independientes, con un Laboratorio Piper compartido para pruebas avanzadas. Las pruebas de síntesis en equipos reales resultaron prometedoras; la privacidad de red, operación offline y transcripción todavía no están completamente validadas.
 
 ## Publicación
 
 **Configuración observada:** Pages construye y publica desde la rama `main` mediante Jekyll. La carpeta `site/` se mantiene como parte de la dirección pública:
 
 - Catálogo: https://fran1599.github.io/laboratorio-client-side-processing/site/
-- Voz ↔ texto: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/
+- Texto a voz: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/
+- Audio a texto: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/stt.html
 - Laboratorio Piper: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html
 
 El workflow `.github/workflows/deploy-pages.yml` verifica sintaxis JavaScript y rutas de la demo en CI, **sin intentar otro despliegue**. El pipeline nativo de Pages publica la rama independientemente de esos checks; el CI no bloquea aún esa publicación.

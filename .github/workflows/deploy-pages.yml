@@ -20,8 +20,9 @@ jobs:
       - name: Validate public demo
         run: |
           set -euo pipefail
-          node --input-type=module --check < site/experimentos/voz-texto/app.js
+          node --input-type=module --check < site/experimentos/voz-texto/tts.js
+          node --input-type=module --check < site/experimentos/voz-texto/stt.js
           node --input-type=module --check < site/experimentos/voz-texto/piper-lab.js
           node --input-type=module --check < site/experimentos/voz-texto/tts-worker.js
           python -m json.tool site/experiments.json > /dev/null
-          node -e 'const fs=require("node:fs"),path=require("node:path"); const base="site/experimentos/voz-texto"; for(const page of ["index.html","piper-lab.html"]){const html=fs.readFileSync(path.join(base,page),"utf8"); for(const found of html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)){const target=path.join(base,found[1]); if(!fs.existsSync(target))throw new Error(page+" missing "+found[1]);}} const catalog=JSON.parse(fs.readFileSync("site/experiments.json","utf8")); const item=catalog.find(x=>x.slug==="voz-texto"); if(!item||item.demo!=="./experimentos/voz-texto/"||item.status!=="in-progress")throw new Error("Voice experiment catalog entry is invalid");'
+          node -e 'const fs=require("node:fs"),path=require("node:path"); const base="site/experimentos/voz-texto"; for(const page of ["index.html","stt.html","piper-lab.html"]){const html=fs.readFileSync(path.join(base,page),"utf8"); for(const found of html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)){const target=path.join(base,found[1]); if(!fs.existsSync(target))throw new Error(page+" missing "+found[1]);}} const catalog=JSON.parse(fs.readFileSync("site/experiments.json","utf8")); const stt=catalog.find(x=>x.slug==="voz-texto"); const tts=catalog.find(x=>x.slug==="texto-voz"); if(!stt||stt.demo!=="./experimentos/voz-texto/stt.html"||!tts||tts.demo!=="./experimentos/voz-texto/"||stt.status!=="in-progress"||tts.status!=="in-progress")throw new Error("Voice experiment catalog entries invalid");'

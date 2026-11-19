@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Audio a texto</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<main class="shell">
+  <nav class="prototype-tabs" aria-label="Herramientas de voz">
+    <a href="./index.html">Texto a voz</a>
+    <a href="./stt.html" class="active" aria-current="page">Audio a texto</a>
+    <a href="./piper-lab.html">Laboratorio Piper</a>
+  </nav>
+  <header class="hero compact-hero">
+    <p class="eyebrow">Experimento 0.2.0 · procesamiento local</p>
+    <h1>Audio a texto</h1>
+    <p>Grabá un audio o seleccioná un archivo para explorar la transcripción con Whisper Tiny en el navegador.</p>
+  </header>
+  <section class="card">
+    <div class="head"><div><p class="eyebrow">Paso 0</p><h2>Diagnóstico</h2></div><button id="refresh">Actualizar</button></div>
+    <div id="diag" class="grid"></div>
+    <p class="muted">RAM y CPU son datos aproximados que el navegador puede limitar por privacidad. No existe una lectura portable de VRAM.</p>
+  </section>
+
+  <section class="card">
+    <div class="head"><div><p class="eyebrow">Prueba 1</p><h2>Speech-to-Text</h2></div><span class="pill">Whisper Tiny</span></div>
+    <div class="controls">
+      <label>Motor<select id="device"><option value="auto">Automático</option><option value="webgpu">WebGPU</option><option value="wasm">CPU / WASM</option></select></label>
+      <label>Modelo<select id="model"><option value="onnx-community/whisper-tiny">whisper-tiny multilingüe</option></select></label>
+    </div>
+    <div class="actions">
+      <button id="record">Grabar micrófono</button>
+      <button id="stop" disabled>Detener</button>
+      <label class="filebtn">Elegir audio<input id="file" type="file" accept="audio/*"></label>
+    </div>
+    <audio id="preview" controls hidden></audio>
+    <p id="stt-status" class="status">Sin audio seleccionado.</p>
+    <progress id="stt-progress" max="100" value="0"></progress>
+    <button id="transcribe" class="primary" disabled>Transcribir localmente</button>
+    <textarea id="transcript" rows="9" placeholder="La transcripción aparecerá acá."></textarea>
+    <div class="actions"><button id="copy">Copiar</button><button id="txt">Descargar TXT</button></div>
+    <div id="stt-metrics" class="metrics"></div>
+  </section>
+
+
+  <details class="card technical-details">
+    <summary>Datos técnicos y diagnóstico de esta ejecución</summary>
+    <p class="muted">Los resultados JSON no incluyen audio, texto de entrada ni transcripciones. La privacidad del tráfico sigue pendiente de validar.</p>
+    <button id="export">Descargar JSON de transcripción</button>
+    <pre id="log"></pre>
+  </details>
+  <p class="muted demo-disclaimer">Prueba experimental. Se descargan código y modelos desde Internet; evitá datos sensibles mientras no se audite el tráfico de red.</p>
+</main>
+<script type="module" src="./stt.js"></script>
+</body>
+</html>

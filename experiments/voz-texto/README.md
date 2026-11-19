@@ -23,7 +23,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.10
+## Prototipo 0.2.0
 
 Código: [`prototype/`](prototype/).
 
@@ -248,3 +248,15 @@ GitHub Pages desplegó correctamente el artefacto Jekyll del commit de integraci
 - [Laboratorio Piper](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html)
 
 El workflow propio de despliegue falló antes de que se asignara un runner. Se lo convirtió en CI estático sin acción de despliegue para no competir con el sistema nativo. **El CI no bloquea todavía las publicaciones de Pages**. La privacidad y STT continúan pendientes de validación.
+
+### Evolución 0.2.0 — separación de herramientas e interfaz simplificada
+
+Las interfaces TTS y STT se separan, conservando dentro del mismo proyecto experimental sus respectivas páginas y controladores. El Laboratorio Piper permanece como espacio de parametrización y comparación.
+
+- `prototype/index.html` / `tts.js`: texto a voz, selección de voces y reproducción progresiva. Incluye `Claude · lectura natural` como **opción de voz** que aplica automáticamente `es_MX-claude-high` con `length_scale=0.89`, `noise_scale=1.10`, `noise_w=1.22` y pausas Natural+.
+- `prototype/stt.html` / `stt.js`: grabación, carga de audio y transcripción con Whisper Tiny, sus métricas y diagnóstico.
+- `prototype/piper-lab.html` / `piper-lab.js`: selección y comparación de voces y parámetros, puntuación subjetiva por muestra y selección de favorita.
+
+La lectura preparada, las pausas y la reproducción progresiva continúan automáticamente en TTS, sin mostrar controles avanzados ni el antiguo comparador A/B dentro de esa herramienta. Los controles y comparaciones permanecen disponibles en el laboratorio.
+
+Se crean dos fichas independientes en el catálogo web, con demos enlazadas, sin duplicar modelos ni introducir un backend. La publicación estable en `main` permanece sin cambios hasta la revisión de esta rama.

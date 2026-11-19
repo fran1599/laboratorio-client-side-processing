@@ -9,13 +9,14 @@
 </head>
 <body>
 <main class="shell">
-  <nav class="prototype-tabs" aria-label="Secciones del experimento">
-    <a href="./index.html">Voz ↔ texto</a>
+  <nav class="prototype-tabs" aria-label="Herramientas de voz">
+    <a href="./index.html">Texto a voz</a>
+    <a href="./stt.html">Audio a texto</a>
     <a href="./piper-lab.html" class="active" aria-current="page">Laboratorio Piper</a>
   </nav>
 
   <header class="hero">
-    <p class="eyebrow">Experimento 0.1.10 · laboratorio local-first</p>
+    <p class="eyebrow">Experimento 0.2.0 · laboratorio local-first</p>
     <h1>Laboratorio Piper</h1>
     <p>Banco de pruebas para comparar voces y configuraciones de prosodia sin backend de inferencia. Los modelos se descargan al navegador y la síntesis se ejecuta localmente.</p>
     <div class="notice"><strong>Objetivo:</strong> encontrar configuraciones útiles antes de convertirlas en presets del flujo principal. Usar texto no sensible mientras la validación de red siga pendiente.</div>
@@ -34,6 +35,12 @@ La meta no es que la voz actúe, sino que resulte agradable, clara y menos mecá
     <div class="controls">
       <label>Voz
         <select id="lab-voice"><option value="">Cargar voces disponibles…</option></select>
+      </label>
+      <label>Preparación del texto
+        <select id="lab-reading-mode">
+          <option value="natural" selected>Natural (limpia Markdown)</option>
+          <option value="literal">Literal (sin preparación)</option>
+        </select>
       </label>
       <label>Velocidad de reproducción
         <select id="lab-rate">
@@ -131,7 +138,7 @@ La meta no es que la voz actúe, sino que resulte agradable, clara y menos mecá
       <div><p class="eyebrow">Comparación</p><h2>Muestras generadas</h2></div>
       <button id="export-lab">Descargar evidencia JSON</button>
     </div>
-    <p class="muted">Cada tarjeta conserva su audio y la configuración exacta usada. Generá varias variantes y escuchalas una al lado de la otra.</p>
+    <p class="muted">Cada tarjeta conserva su audio, parámetros y valoración subjetiva para comparar voces y perfiles. Generá varias variantes y escuchalas una al lado de la otra.</p>
     <div id="lab-results" class="lab-results">
       <p class="muted">Todavía no hay muestras.</p>
     </div>

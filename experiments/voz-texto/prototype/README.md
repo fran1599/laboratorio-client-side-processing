@@ -1,4 +1,4 @@
-# Prototipo 0.1.10
+# Prototipo 0.2.0
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -164,3 +164,11 @@ La versión 0.1.10 añade `Claude · candidata 8` al selector de prosodia de la 
 Esta publicación amplía las pruebas entre dispositivos. No significa que se haya validado la ausencia de transmisión de contenido, operación offline, ni STT en hardware distinto. Evitar contenido sensible durante la validación de tráfico. GitHub Pages sirve archivos estáticos; modelos y dependencias se descargan de terceros.
 
 **Nota:** en la configuración de Pages desde rama raíz, las rutas públicas contienen `/site/`; si se pasa a despliegue por artefacto GitHub Actions, deberán actualizarse.
+
+## Separación de interfaces — 0.2.0
+
+- Texto a voz: `index.html` y `tts.js`. Modo natural con pausas Natural+ y reproducción progresiva activada por defecto. El selector de voz incorpora `Claude · lectura natural` (perfil candidato 8), sin exponer parámetros avanzados.
+- Audio a texto: `stt.html` y `stt.js`. Diagnóstico, micrófono, archivos, transcripción y evidencia.
+- Laboratorio Piper: `piper-lab.html` y `piper-lab.js`. Sliders, presets y comparaciones calificables.
+
+Las pruebas deben realizarse por separado en cada página. URLs relativas compatibles con GitHub Pages bajo `/site/experimentos/voz-texto/`. No se declara validada la privacidad de red ni compatibilidad entre dispositivos.

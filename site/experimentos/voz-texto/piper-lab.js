@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 
 const run={
-  version:'0.1.10',
+  version:'0.2.0',
   startedAt:new Date().toISOString(),
   diagnostics:{
     hardwareConcurrency:navigator.hardwareConcurrency??null,
@@ -9,6 +9,7 @@ const run={
     secureContext:window.isSecureContext
   },
   samples:[],
+  favoriteSampleId:null,
   failures:[],
   events:[]
 };
@@ -323,7 +324,39 @@ function createResultCard(sample,blob){
   };
   actions.append(downloadBtn,reuse);
 
-  card.append(title,params,pause,audio,actions);
+  const ratings=document.createElement('div');
+  ratings.className='rating-grid';
+  for(const [field,title] of [['naturalness','Naturalidad'],['clarity','Claridad'],['timbre','Timbre']]){
+    const label=document.createElement('label');
+    label.textContent=title;
+    const select=document.createElement('select');
+    for(const value of ['',1,2,3,4,5]){
+      const option=document.createElement('option');
+      option.value=String(value);
+      option.textContent=value===''?'Sin puntuar':String(value);
+      select.append(option);
+    }
+    select.value=String(sample.ratings?.[field]??'');
+    select.onchange=()=>{
+      sample.ratings[field]=select.value===''?null:Number(select.value);
+      log('sample-rating',{sampleId:sample.id,field,rating:sample.ratings[field]});
+    };
+    label.append(select);
+    ratings.append(label);
+  }
+  const favorite=document.createElement('label');
+  favorite.className='favorite-option';
+  const radio=document.createElement('input');
+  radio.type='radio';
+  radio.name='lab-favorite';
+  radio.checked=run.favoriteSampleId===sample.id;
+  radio.onchange=()=>{
+    run.favoriteSampleId=sample.id;
+    log('sample-favorite',{sampleId:sample.id});
+  };
+  favorite.append(radio,document.createTextNode(' Muestra favorita'));
+
+  card.append(title,params,pause,audio,ratings,favorite,actions);
   root.prepend(card);
 }
 async function handleWorker(data){
@@ -412,6 +445,7 @@ async function handleWorker(data){
       textChars:currentJob.textChars,
       prosody:currentJob.prosody,
       prosodyMode:currentJob.prosodyMode,
+      ratings:{naturalness:null,clarity:null,timbre:null},
       pauses:currentJob.pauses,
       completedChunks:currentJob.completed,
       totalChunks:currentJob.total,
@@ -485,6 +519,7 @@ $('clear-samples').onclick=()=>{
   for(const url of sampleUrls.values())URL.revokeObjectURL(url);
   sampleUrls.clear();
   run.samples=[];
+  run.favoriteSampleId=null;
   $('lab-results').innerHTML='<p class="muted">Todavía no hay muestras.</p>';
   log('samples-cleared');
 };

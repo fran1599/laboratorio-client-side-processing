@@ -66,3 +66,12 @@
   .lab-sliders small{color:#94a3b8}
   .button-link{background:#1e293b;color:#f8fafc;border-color:#475569}
 }
+.compact-hero{padding-bottom:.5rem}
+.compact-hero h1{font-size:clamp(1.9rem,4vw,2.7rem)}
+.quick-voice label{max-width:640px}
+#tts-text{min-height:180px;line-height:1.6}
+.technical-details{margin-top:1rem}
+.technical-details summary{font-weight:650;cursor:pointer}
+.technical-details .metrics{margin-top:1rem}
+.demo-disclaimer{margin:1.25rem .2rem;font-size:.82rem}
+@media(max-width:620px){.prototype-tabs{gap:.1rem}.prototype-tabs a{font-size:.8rem;padding:.45rem .55rem}.shell{padding-top:1rem}}

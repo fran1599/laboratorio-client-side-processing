@@ -18,19 +18,26 @@ http://localhost:8000
 
 Usar preferentemente Chrome o Edge actualizado para la primera ronda.
 
-## Orden recomendado
+## Accesos y pruebas recomendadas
 
-1. Revisar el diagnóstico.
-2. Grabar ~15 segundos de audio no sensible.
-3. Probar STT en modo Automático.
-4. Repetir con WebGPU si está disponible.
-5. Repetir con CPU/WASM.
-6. Si es estable, probar ~60 segundos.
-7. Cargar voces Piper y sintetizar primero una frase corta.
-8. Probar después un texto largo; el prototipo lo divide automáticamente en fragmentos de hasta ~400 caracteres.
-9. Con «Reproducir en cuanto haya audio disponible» activado, verificar que la escucha empiece antes de terminar la conversión y que el panel muestre progreso, tiempo transcurrido, estimación restante y buffer.
-10. Probar play/pausa, seek y velocidades entre 0,5× y 2×. Si la reproducción alcanza a la generación, debe esperar el siguiente fragmento sin cancelar la conversión.
-11. Descargar el WAV completo y el JSON de evidencia al finalizar.
+- `index.html`: **Texto a voz (TTS)**. Es la pantalla principal y muestra solamente campo de texto, selección de voz, generación y reproductor. El catálogo de voces se solicita automáticamente.
+- `stt.html`: **Audio a texto (STT)**. Permite grabar o elegir un audio, seleccionar motor y transcribir, con diagnóstico separado.
+- `piper-lab.html`: **Laboratorio Piper**. Permite comparar varias voces, modos de lectura, pausas y parámetros de prosodia, calificando muestras.
+
+### Probar TTS
+
+1. Abrir `index.html` y esperar la carga del catálogo de voces.
+2. Elegir `Claude · lectura natural (perfil favorito)` y generar audio a partir de una frase no sensible.
+3. Verificar la reproducción progresiva, play/pausa, desplazamiento y velocidades entre 0,5× y 2×.
+4. Repetir con un texto más largo y descargar el WAV y el JSON.
+5. Comparar la misma frase con la voz `Claude high` original, disponible entre las demás voces.
+
+### Probar STT
+
+1. Abrir `stt.html` y revisar el diagnóstico del navegador.
+2. Grabar ~15 segundos o elegir un audio propio no sensible.
+3. Transcribir en modo Automático, después en WebGPU (si está disponible) y CPU/WASM.
+4. Si funciona, repetir con ~60 segundos y exportar evidencia.
 
 ## Red y privacidad
 
@@ -43,11 +50,11 @@ La aplicación sí descarga recursos de red:
 - Whisper Tiny desde Hugging Face.
 - modelos y recursos de voz utilizados por Piper.
 
-El contenido del usuario está diseñado para entregarse a los motores dentro del navegador. **Esto debe verificarse mediante inspección de red antes de publicar la demo o hacer una afirmación fuerte de privacidad.**
+El contenido del usuario está diseñado para entregarse a los motores dentro del navegador. **El tráfico de red todavía debe inspeccionarse para poder afirmar privacidad.**
 
 ## Evidencia
 
-El JSON exportado no incluye el audio, el texto de entrada ni la transcripción. Registra diagnóstico, backend utilizado, tiempos, factor de tiempo real y errores.
+Los JSON exportados no incluyen audio, texto de entrada ni transcripciones. TTS y STT tienen registros independientes con sus tiempos, métricas y errores.
 
 No usar material sensible durante esta etapa.
 

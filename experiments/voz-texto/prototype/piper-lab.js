@@ -186,6 +186,57 @@ function splitLong(text,max=400){
   if(current)out.push(current);
   return out;
 }
+function stripMarkdownForSpeech(text){
+  let value=String(text||'').replace(/\r\n?/g,'\n');
+  value=value.replace(/\x60{3}[^\n]*\n([\s\S]*?)\x60{3}/g,(_,code)=>{
+    const cleaned=code.replace(/^\s+|\s+$/g,'').replace(/\n+/g,'. ');
+    return '\nCódigo. '+cleaned+'. Fin del código.\n';
+  });
+  value=value
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g,'$1')
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/)?[^)]*\)/g,'$1')
+    .replace(/https?:\/\/\S+/g,' enlace ')
+    .replace(/\x60([^\x60]+)\x60/g,'$1')
+    .replace(/\*\*([^*]+)\*\*/g,'$1')
+    .replace(/__([^_]+)__/g,'$1')
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,'$1')
+    .replace(/(?<!_)_([^_]+)_(?!_)/g,'$1')
+    .replace(/~~([^~]+)~~/g,'$1')
+    .replace(/\s+↔\s+/g,' y ')
+    .replace(/\s+→\s+/g,' a ')
+    .replace(/\s+←\s+/g,' desde ')
+    .replace(/\s+×\s+/g,' por ');
+
+  const lines=value.split('\n');
+  const out=[];
+  for(const raw of lines){
+    let line=raw.trim();
+    if(!line){out.push('');continue}
+    if(/^[-*_]{3,}$/.test(line))continue;
+    const heading=line.match(/^#{1,6}\s+(.+)$/);
+    if(heading){
+      line=heading[1].trim();
+      if(!/[.!?…:]$/.test(line))line+='.';
+      out.push(line);
+      out.push('');
+      continue;
+    }
+    const isListItem=/^[-*+]\s+/.test(line)||/^\d+[.)]\s+/.test(line)||/^\[?[ xX]\]\s+/.test(line);
+    line=line
+      .replace(/^>\s?/,'')
+      .replace(/^[-*+]\s+/,'')
+      .replace(/^\[?[ xX]\]\s+/,'');
+    const numbered=line.match(/^(\d+)[.)]\s+(.+)$/);
+    if(numbered) line=numbered[1]+'. '+numbered[2];
+    out.push(line);
+    if(isListItem)out.push('');
+  }
+  return out.join('\n')
+    .replace(/[ \t]+/g,' ')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
+}
+
 function buildChunks(text,pauses){
   const normalized=String(text||'').replace(/\r\n?/g,'\n').trim();
   const paragraphs=normalized.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
@@ -288,7 +339,8 @@ function createResultCard(sample,blob){
     'length '+sample.prosody.lengthScale.toFixed(3)+
     ' · noise '+sample.prosody.noiseScale.toFixed(3)+
     ' · noise_w '+sample.prosody.noiseW.toFixed(3)+
-    ' · '+sample.audioSeconds.toFixed(1)+' s';
+    ' · '+sample.audioSeconds.toFixed(1)+' s'+
+    ' · texto '+(sample.readingMode==='natural'?'natural':'literal');
 
   const pause=document.createElement('p');
   pause.className='muted';
@@ -443,6 +495,8 @@ async function handleWorker(data){
       jobId:currentJob.id,
       voiceId:currentJob.voiceId,
       textChars:currentJob.textChars,
+      preparedChars:currentJob.preparedChars,
+      readingMode:currentJob.readingMode,
       prosody:currentJob.prosody,
       prosodyMode:currentJob.prosodyMode,
       ratings:{naturalness:null,clarity:null,timbre:null},
@@ -499,20 +553,22 @@ $('generate-sample').onclick=()=>{
   const voiceId=$('lab-voice').value;
   const text=$('lab-text').value.trim();
   if(!voiceId||!text)return;
+  const readingMode=$('lab-reading-mode').value;
+  const preparedText=readingMode==='natural'?stripMarkdownForSpeech(text):text;
   const prosodyOverride=readProsodyOverride();
   const prosody=effectiveProsody();
   const prosodyMode=prosodyOverride===null?'model-defaults':'override';
   const pauses=readPauses();
-  const chunks=buildChunks(text,pauses);
+  const chunks=buildChunks(preparedText,pauses);
   currentJob={
     id:'lab-'+Date.now(),
-    voiceId,textChars:text.length,prosody,prosodyOverride,prosodyMode,pauses,
+    voiceId,textChars:text.length,preparedChars:preparedText.length,readingMode,prosody,prosodyOverride,prosodyMode,pauses,
     total:chunks.length,completed:0,inferenceMs:0,parts:new Array(chunks.length)
   };
   $('generate-sample').disabled=true;
   $('lab-progress').value=0;
   $('lab-status').textContent='Inicializando '+voiceId+'…';
-  log('sample-start',{voiceId,textChars:text.length,prosody,prosodyMode,pauses,chunks:chunks.length});
+  log('sample-start',{voiceId,textChars:text.length,preparedChars:preparedText.length,readingMode,prosody,prosodyMode,pauses,chunks:chunks.length});
   getWorker().postMessage({type:'synth',jobId:currentJob.id,voiceId,chunks,prosody:prosodyOverride});
 };
 $('clear-samples').onclick=()=>{

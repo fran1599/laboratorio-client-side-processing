@@ -6,6 +6,15 @@ Exploraciones reproducibles de tecnologías que procesan información **en el na
 
 **Regla esencial:** «se abre en el navegador» no equivale a «procesa localmente». Cada prueba debe documentar solicitudes de red, dependencias externas, permisos, disponibilidad offline y tratamiento de datos.
 
+## Índice de experimentos
+
+| Estado | Prueba | Propósito | Acceso |
+| --- | --- | --- | --- |
+| Planeado | [Voz ↔ texto](experiments/voz-texto/README.md) | Explorar reconocimiento y síntesis de voz con procesamiento local verificable. | [Documentación](experiments/voz-texto/README.md) |
+| Con limitaciones | [Distrito Luz](experiments/distrito-luz/README.md) | Medir el rendimiento de un videojuego Canvas 2D en móviles. | [Documentación](experiments/distrito-luz/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/experimentos/distrito-luz/) |
+
+Cada experimento comienza con enlaces de retorno a este índice y un índice de sus secciones.
+
 ## Organización
 
 - `site/`: catálogo público, independiente de la tecnología de cada experimento.

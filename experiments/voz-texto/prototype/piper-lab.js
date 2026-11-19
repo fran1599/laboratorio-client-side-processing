@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 
 const run={
-  version:'0.1.9',
+  version:'0.1.10',
   startedAt:new Date().toISOString(),
   diagnostics:{
     hardwareConcurrency:navigator.hardwareConcurrency??null,

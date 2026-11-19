@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Laboratorio Piper · Voz local</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<main class="shell">
+  <nav class="prototype-tabs" aria-label="Secciones del experimento">
+    <a href="./index.html">Voz ↔ texto</a>
+    <a href="./piper-lab.html" class="active" aria-current="page">Laboratorio Piper</a>
+  </nav>
+
+  <header class="hero">
+    <p class="eyebrow">Experimento 0.1.10 · laboratorio local-first</p>
+    <h1>Laboratorio Piper</h1>
+    <p>Banco de pruebas para comparar voces y configuraciones de prosodia sin backend de inferencia. Los modelos se descargan al navegador y la síntesis se ejecuta localmente.</p>
+    <div class="notice"><strong>Objetivo:</strong> encontrar configuraciones útiles antes de convertirlas en presets del flujo principal. Usar texto no sensible mientras la validación de red siga pendiente.</div>
+  </header>
+
+  <section class="card">
+    <div class="head">
+      <div><p class="eyebrow">Configuración</p><h2>Muestra de prueba</h2></div>
+      <button id="load-voices">Cargar voces</button>
+    </div>
+
+    <textarea id="lab-text" rows="7">Hoy quiero probar cómo suena esta voz en una lectura cotidiana. ¿La pregunta deja una pausa natural antes de continuar? Después de un punto debería sentirse una respiración breve. Y al cambiar de párrafo, una pausa un poco mayor.
+
+La meta no es que la voz actúe, sino que resulte agradable, clara y menos mecánica durante varios minutos de escucha.</textarea>
+
+    <div class="controls">
+      <label>Voz
+        <select id="lab-voice"><option value="">Cargar voces disponibles…</option></select>
+      </label>
+      <label>Velocidad de reproducción
+        <select id="lab-rate">
+          <option value=".75">0,75×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.25">1,25×</option>
+          <option value="1.5">1,5×</option>
+          <option value="1.75">1,75×</option>
+          <option value="2">2×</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <div><p class="eyebrow">Prosodia interna</p><h2>Parámetros Piper</h2></div>
+      <button id="reset-piper">Restablecer</button>
+    </div>
+    <p class="muted">Estos controles modifican el JSON de configuración de la voz sólo en memoria. El archivo ONNX no se altera. «Claude · candidata 8» recupera la combinación preferida en la prueba del 15/11/2026; sigue pendiente validarla con textos largos.</p>
+    <label class="check lab-defaults">
+      <input id="use-model-defaults" type="checkbox" checked>
+      Usar valores originales de la voz seleccionada
+    </label>
+    <p id="model-defaults" class="muted">Los valores reales se cargarán junto con la voz.</p>
+
+    <div class="lab-sliders">
+      <label>
+        <span><strong>length_scale</strong><output id="length-out">1.000</output></span>
+        <input id="length-scale" type="range" min=".70" max="1.40" step=".01" value="1">
+        <small>Mayor valor = habla más lenta / fonemas más largos.</small>
+      </label>
+      <label>
+        <span><strong>noise_scale</strong><output id="noise-out">0.667</output></span>
+        <input id="noise-scale" type="range" min="0" max="1.5" step=".01" value=".667">
+        <small>Controla variabilidad acústica. Exceso puede degradar la voz.</small>
+      </label>
+      <label>
+        <span><strong>noise_w</strong><output id="noisew-out">0.800</output></span>
+        <input id="noise-w" type="range" min="0" max="1.5" step=".01" value=".8">
+        <small>Controla variabilidad temporal de los fonemas.</small>
+      </label>
+    </div>
+
+    <div class="actions lab-presets">
+      <button data-preset="original">Original</button>
+      <button data-preset="naturalA">Natural A</button>
+      <button data-preset="naturalB">Natural B</button>
+      <button data-preset="claudeCandidate8">Claude · candidata 8</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <div><p class="eyebrow">Pausas externas</p><h2>Puntuación y respiración</h2></div>
+      <button id="reset-pauses">Natural+</button>
+    </div>
+    <p class="muted">Estas pausas se agregan como silencio PCM después de cada oración; son independientes de la prosodia interna de Piper.</p>
+
+    <div class="lab-sliders compact-grid">
+      <label>
+        <span><strong>Punto</strong><output id="period-out">380 ms</output></span>
+        <input id="period-pause" type="range" min="0" max="1200" step="20" value="380">
+      </label>
+      <label>
+        <span><strong>Pregunta</strong><output id="question-out">560 ms</output></span>
+        <input id="question-pause" type="range" min="0" max="1400" step="20" value="560">
+      </label>
+      <label>
+        <span><strong>Exclamación</strong><output id="exclamation-out">460 ms</output></span>
+        <input id="exclamation-pause" type="range" min="0" max="1400" step="20" value="460">
+      </label>
+      <label>
+        <span><strong>Párrafo</strong><output id="paragraph-out">760 ms</output></span>
+        <input id="paragraph-pause" type="range" min="0" max="1800" step="20" value="760">
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <div><p class="eyebrow">Ejecución</p><h2>Generar muestra</h2></div>
+      <span id="lab-config-summary" class="pill">Sin voz cargada</span>
+    </div>
+    <div class="actions">
+      <button id="generate-sample" class="primary" disabled>Generar muestra</button>
+      <button id="clear-samples">Limpiar comparaciones</button>
+    </div>
+    <p id="lab-status" class="status">Cargá las voces para comenzar.</p>
+    <progress id="lab-progress" max="100" value="0"></progress>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <div><p class="eyebrow">Comparación</p><h2>Muestras generadas</h2></div>
+      <button id="export-lab">Descargar evidencia JSON</button>
+    </div>
+    <p class="muted">Cada tarjeta conserva su audio y la configuración exacta usada. Generá varias variantes y escuchalas una al lado de la otra.</p>
+    <div id="lab-results" class="lab-results">
+      <p class="muted">Todavía no hay muestras.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head"><div><p class="eyebrow">Registro</p><h2>Eventos</h2></div></div>
+    <pre id="lab-log"></pre>
+  </section>
+</main>
+<script type="module" src="./piper-lab.js"></script>
+</body>
+</html>

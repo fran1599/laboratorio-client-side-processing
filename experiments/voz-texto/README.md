@@ -1,5 +1,7 @@
 # Voz y texto en el navegador
 
+> [← Índice de experimentos](../../README.md#índice-de-experimentos) · [Arquitectura](../../docs/ARCHITECTURE.md) · [Guía de trabajo](../../docs/CONTRIBUTING.md)
+
 - **Slug:** `voz-texto`
 - **Estado:** in-progress
 - **Responsable:** Franco Fariña
@@ -21,7 +23,7 @@ Esta etapa prueba:
 
 Fuera de alcance por ahora: backend, cuentas, almacenamiento remoto, fallback a inferencia externa, diarización, branding definitivo, producto final y promesas de funcionamiento offline.
 
-## Prototipo 0.1.9
+## Prototipo 0.1.10
 
 Código: [`prototype/`](prototype/).
 
@@ -199,9 +201,9 @@ La etapa será prometedora si un equipo con 8 GB de RAM, sin depender de una GPU
 
 ## Decisión vigente
 
-**Continuar en experimentación.**
+**Publicar en GitHub Pages como demostración experimental en curso**, por solicitud explícita del usuario para validar funcionamiento desde otros dispositivos mediante CI/CD.
 
-No publicar aún el prototipo en GitHub Pages ni marcarlo como validado hasta ejecutar la primera ronda, revisar tráfico de red y documentar limitaciones.
+Las pruebas de síntesis Piper son prometedoras y el flujo principal puede producir audio progresivo. Aún no está validada la inspección de tráfico de red ni la operación offline; tampoco se consideran concluidas las pruebas de transcripción (STT) y compatibilidad. No declarar el experimento «Validado» ni usar contenido sensible mientras queden estas verificaciones pendientes.
 
 
 ### Evolución 0.1.8 — Laboratorio Piper
@@ -228,3 +230,11 @@ La experiencia positiva debe corroborarse en textos más largos, sin asumir que 
 **Evolución 0.1.9:** incorporar «Claude · candidata 8» al Laboratorio Piper; conservar en el JSON el fragmento exacto que falla y la configuración de los intentos fallidos; procesar secuencialmente los eventos del Worker para asegurar la integridad del ensamblado del WAV. Se mantienen los modelos y la infraestructura de la 0.1.8.
 
 **Próxima prueba:** comparar el perfil candidato con el original de Claude sobre un mismo texto de 1–2 minutos y evaluar estabilidad, naturalidad, pausas y articulación.
+
+### Evolución 0.1.10 — primera publicación en Pages
+
+Se añade el perfil `Claude · candidata 8` (length_scale 0.89, noise_scale 1.10, noise_w 1.22) como opción en el flujo cotidiano de texto a voz. En el Laboratorio Piper el mismo perfil sigue disponible para experimentar. El perfil se fundamenta en una preferencia reportada tras una muestra corta; no equivale a una validación objetiva de naturalidad.
+
+Se publican los archivos estáticos del prototipo en `site/experimentos/voz-texto/`, con navegación entre herramientas y catálogo actualizado a `in-progress`. El workflow de GitHub Pages incorpora un chequeo de sintaxis JavaScript, integridad de rutas relativas y registro de demo antes de desplegar.
+
+Esta decisión de publicación **no modifica** las restricciones: no hay backend ni fallback a inferencia remota; el código y los modelos pueden descargarse desde terceros; el contenido no debe usarse como sensible hasta revisar el tráfico de red en origen Pages. PR #3 registra el cambio de alcance autorizado y la evidencia.

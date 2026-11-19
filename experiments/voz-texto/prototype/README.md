@@ -1,4 +1,4 @@
-# Prototipo 0.1.9
+# Prototipo 0.1.10
 
 Aplicación estática para la primera ronda de pruebas del experimento **voz ↔ texto**.
 
@@ -150,3 +150,15 @@ Este es un perfil experimental basado en una preferencia reportada, **no un pres
 El JSON exportado incorpora `failures` y registra, para intentos fallidos posteriores a esta actualización, la voz, la prosodia, las pausas, los fragmentos completados, el índice del fragmento fallido y el error original. Los eventos del Worker se procesan secuencialmente para impedir que el ensamblado se adelante a la preparación de algún fragmento.
 
 En la ejecución anterior hubo tres excepciones numéricas tras el primer fragmento, todas con `noise_w=1.50`, aunque luego se sintetizó con éxito tras reintentar. No se ha demostrado causalidad.
+
+## Publicación de prueba — 0.1.10
+
+La demo pública se distribuye por GitHub Pages desde `site/experimentos/voz-texto/`.
+
+- Catálogo: https://fran1599.github.io/laboratorio-client-side-processing/
+- Voz ↔ texto: https://fran1599.github.io/laboratorio-client-side-processing/experimentos/voz-texto/
+- Laboratorio Piper: https://fran1599.github.io/laboratorio-client-side-processing/experimentos/voz-texto/piper-lab.html
+
+La versión 0.1.10 añade `Claude · candidata 8` al selector de prosodia de la herramienta principal. El mismo perfil permanece en el laboratorio para experimentación.
+
+Esta publicación amplía las pruebas entre dispositivos. No significa que se haya validado la ausencia de transmisión de contenido, operación offline, ni STT en hardware distinto. Evitar contenido sensible durante la validación de tráfico. GitHub Pages sirve archivos estáticos; modelos y dependencias se descargan de terceros.

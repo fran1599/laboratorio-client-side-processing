@@ -14,7 +14,7 @@
     <a href="./piper-lab.html">Laboratorio Piper</a>
   </nav>
   <header class="hero">
-    <p class="eyebrow">Experimento 0.1.9 · local-first</p>
+    <p class="eyebrow">Experimento 0.1.10 · local-first</p>
     <h1>Voz ↔ texto en el navegador</h1>
     <p>El prototipo intenta procesar el contenido en este dispositivo. Descarga código y modelos desde Internet, pero no configura ningún servidor de inferencia ni fallback remoto; el tráfico debe inspeccionarse antes de afirmar privacidad.</p>
     <div class="notice"><strong>Estado:</strong> prototipo no validado. Antes de afirmar privacidad u operación offline hay que inspeccionar tráfico de red y probar hardware real.</div>
@@ -68,13 +68,14 @@
       <label>Prosodia experimental
         <select id="prosody-preset">
           <option value="original">Original de la voz</option>
-          <option value="naturalA" selected>Claude Natural A — variación leve</option>
+          <option value="naturalA">Claude Natural A — variación leve</option>
           <option value="naturalB">Claude Natural B — más expresiva</option>
+          <option value="claudeCandidate8" selected>Claude · candidata 8 — perfil preferido experimental</option>
         </select>
       </label>
     </div>
     <p id="prosody-values" class="muted">Valores originales de la voz</p>
-    <p class="muted">Los perfiles Natural A/B están calibrados como experimento alrededor de Claude high. En otras voces pueden producir resultados distintos.</p>
+    <p class="muted">La candidata 8 usa length_scale 0,89; noise_scale 1,10; noise_w 1,22. Fue preferida en una prueba corta y todavía requiere validación sostenida. Al elegirla se selecciona Claude high cuando está disponible. Los demás perfiles también son experimentales.</p>
     <div class="controls">
       <label class="check"><input id="progressive-play" type="checkbox" checked> Reproducir en cuanto haya audio disponible</label>
     </div>

@@ -5,7 +5,7 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true;
 
 const $ = id => document.getElementById(id);
-const run = { version:'0.1.9', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
+const run = { version:'0.1.10', startedAt:new Date().toISOString(), diagnostics:{}, stt:[], tts:[], voiceComparisons:[], events:[] };
 
 function log(event, detail={}) {
   run.events.push({ at:new Date().toISOString(), event, ...detail });
@@ -135,7 +135,8 @@ const PAUSE_PROFILES={
 const PROSODY_PRESETS={
   original:null,
   naturalA:{lengthScale:1.03,noiseScale:0.75,noiseW:0.72},
-  naturalB:{lengthScale:1.06,noiseScale:0.85,noiseW:0.65}
+  naturalB:{lengthScale:1.06,noiseScale:0.85,noiseW:0.65},
+  claudeCandidate8:{lengthScale:0.89,noiseScale:1.10,noiseW:1.22}
 };
 
 function punctuationBoundary(text){
@@ -988,6 +989,10 @@ $('reading-mode').addEventListener('change',refreshSpeechPreview);
 $('pause-profile').addEventListener('change',refreshSpeechPreview);
 $('prosody-preset').addEventListener('change',()=>{
   const key=$('prosody-preset').value;
+  if(key==='claudeCandidate8'){
+    const claude=[...$('voice').options].find(o=>o.value==='es_MX-claude-high');
+    if(claude)$('voice').value=claude.value;
+  }
   const p=PROSODY_PRESETS[key];
   $('prosody-values').textContent=p
     ?'length_scale '+p.lengthScale+' · noise_scale '+p.noiseScale+' · noise_w '+p.noiseW

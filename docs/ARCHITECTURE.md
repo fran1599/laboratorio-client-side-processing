@@ -16,7 +16,7 @@ Publicar un catálogo de pruebas independientes de procesamiento client-side. No
 - Ningún experimento debe importar archivos, bibliotecas instaladas ni estado privado de otro experimento.
 - Cada experimento declara versiones, instalación, ejecución, permisos, hardware, compatibilidad y licencias.
 - No hay `node_modules`, entornos virtuales, modelos grandes, datasets personales o claves en Git.
-- Las demos deben funcionar bajo una **ruta base de proyecto** de Pages: `/laboratorio-client-side-processing/experimentos/<slug>/`. Preferir URLs relativas.
+- Las demos deben funcionar bajo una **ruta base de proyecto** de Pages: `/laboratorio-client-side-processing/site/experimentos/<slug>/`. Preferir URLs relativas.
 - El catálogo jamás ejecuta código del experimento; solo enlaza demos y documentación.
 - Se admite `localhost` como entorno de desarrollo: no es el origen final en GitHub Pages.
 - Si una prueba necesita backend de inferencia o transmite contenidos a terceros, declararlo como fuera del alcance de una demo estrictamente local, o presentarla explícitamente como comparación no-local sin procesar datos sensibles.
@@ -35,3 +35,9 @@ Registrar tráfico de red durante las pruebas; jamás prometer privacidad total 
 ## Publicación y promoción
 
 Las pruebas permanecen aisladas. Una demo se publica solo tras verificar rutas, funcionamiento, permisos y ausencia de secretos/datos personales. Al convertirse en producto, crear repositorio propio conservando en este laboratorio una ficha histórica y un enlace.
+
+## Modo de despliegue observado (noviembre de 2026)
+
+GitHub Pages publica la rama `main` mediante Jekyll; `site/` queda como subdirectorio público. El workflow propio valida la demo en CI, pero no despliega ni bloquea la publicación nativa.
+
+Una eventual migración a «GitHub Actions» como fuente de Pages requiere reactivar un único pipeline de validación y despliegue y actualizar la ruta base para remover `/site/`.

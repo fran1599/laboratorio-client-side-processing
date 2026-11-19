@@ -10,8 +10,8 @@ Exploraciones reproducibles de tecnologías que procesan información **en el na
 
 | Estado | Prueba | Propósito | Acceso |
 | --- | --- | --- | --- |
-| Planeado | [Voz ↔ texto](experiments/voz-texto/README.md) | Explorar reconocimiento y síntesis de voz con procesamiento local verificable. | [Documentación](experiments/voz-texto/README.md) |
-| Con limitaciones | [Distrito Luz](experiments/distrito-luz/README.md) | Medir el rendimiento de un videojuego Canvas 2D en móviles. | [Documentación](experiments/distrito-luz/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/experimentos/distrito-luz/) |
+| En curso | [Voz ↔ texto](experiments/voz-texto/README.md) | Probar Whisper y Piper, reproducción progresiva y prosodia. | [Documentación](experiments/voz-texto/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/) · [Laboratorio Piper](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html) |
+| Con limitaciones | [Distrito Luz](experiments/distrito-luz/README.md) | Medir el rendimiento de un videojuego Canvas 2D en móviles. | [Documentación](experiments/distrito-luz/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/distrito-luz/) |
 
 Cada experimento comienza con enlaces de retorno a este índice y un índice de sus secciones.
 
@@ -31,14 +31,20 @@ Cada experimento comienza con enlaces de retorno a este índice y un índice de 
 4. Para publicar la demo en GitHub Pages, copiar/compilar exclusivamente archivos estáticos públicos a `site/experimentos/<slug>/` y añadir una entrada a `site/experiments.json`.
 5. Abrir un pull request; no incorporar resultados sin verificarlos.
 
-## Primer experimento previsto
+## Experimento de voz en curso
 
-**Voz ↔ texto**: comparar reconocimiento de voz y síntesis de habla con tecnologías del navegador e inferencia realmente local. Está registrado como **planeado**, sin afirmar capacidades todavía verificadas.
+**Voz ↔ texto** ofrece una demostración pública de Piper y Whisper. Las pruebas de síntesis en equipos reales resultaron prometedoras; la privacidad de red, operación offline y transcripción todavía no están completamente validadas.
 
 ## Publicación
 
-Workflow `deploy-pages.yml`: despliega el contenido de `site/` cuando se actualiza `main` (o mediante ejecución manual). Configurar una vez en **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+**Configuración observada:** Pages construye y publica desde la rama `main` mediante Jekyll. La carpeta `site/` se mantiene como parte de la dirección pública:
 
-Sitio previsto: https://fran1599.github.io/laboratorio-client-side-processing/
+- Catálogo: https://fran1599.github.io/laboratorio-client-side-processing/site/
+- Voz ↔ texto: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/
+- Laboratorio Piper: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html
+
+El workflow `.github/workflows/deploy-pages.yml` verifica sintaxis JavaScript y rutas de la demo en CI, **sin intentar otro despliegue**. El pipeline nativo de Pages publica la rama independientemente de esos checks; el CI no bloquea aún esa publicación.
+
+Para publicar `site/` como raíz, habría que configurar Pages con «Source: GitHub Actions» y restablecer un único workflow que valide antes del despliegue. Actualmente no se realizó ese cambio de configuración.
 
 Proyecto experimental: sin garantía de compatibilidad, confidencialidad ni funcionamiento offline hasta validar cada implementación.

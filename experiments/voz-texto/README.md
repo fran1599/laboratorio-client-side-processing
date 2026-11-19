@@ -235,6 +235,16 @@ La experiencia positiva debe corroborarse en textos más largos, sin asumir que 
 
 Se añade el perfil `Claude · candidata 8` (length_scale 0.89, noise_scale 1.10, noise_w 1.22) como opción en el flujo cotidiano de texto a voz. En el Laboratorio Piper el mismo perfil sigue disponible para experimentar. El perfil se fundamenta en una preferencia reportada tras una muestra corta; no equivale a una validación objetiva de naturalidad.
 
-Se publican los archivos estáticos del prototipo en `site/experimentos/voz-texto/`, con navegación entre herramientas y catálogo actualizado a `in-progress`. El workflow de GitHub Pages incorpora un chequeo de sintaxis JavaScript, integridad de rutas relativas y registro de demo antes de desplegar.
+Se publican los archivos estáticos del prototipo en `site/experimentos/voz-texto/`, con navegación entre herramientas y catálogo actualizado a `in-progress`. El workflow propio ejecuta comprobaciones de CI; el despliegue nativo de Pages publica por separado.
 
 Esta decisión de publicación **no modifica** las restricciones: no hay backend ni fallback a inferencia remota; el código y los modelos pueden descargarse desde terceros; el contenido no debe usarse como sensible hasta revisar el tráfico de red en origen Pages. PR #3 registra el cambio de alcance autorizado y la evidencia.
+
+### Corrección de publicación — 19/11/2026
+
+GitHub Pages desplegó correctamente el artefacto Jekyll del commit de integración. Se inspeccionó el artefacto y se verificaron las dos páginas HTML y sus dependencias estáticas. Como Pages publica desde la rama raíz, las URLs incluyen `/site/`:
+
+- [Catálogo](https://fran1599.github.io/laboratorio-client-side-processing/site/)
+- [Voz ↔ texto](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/)
+- [Laboratorio Piper](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html)
+
+El workflow propio de despliegue falló antes de que se asignara un runner. Se lo convirtió en CI estático sin acción de despliegue para no competir con el sistema nativo. **El CI no bloquea todavía las publicaciones de Pages**. La privacidad y STT continúan pendientes de validación.

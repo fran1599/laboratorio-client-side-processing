@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages
+name: Validate Pages demo (CI)
 
 on:
   push:
@@ -10,19 +10,10 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
-  deploy:
+  validate:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,12 +25,3 @@ jobs:
           node --input-type=module --check < site/experimentos/voz-texto/tts-worker.js
           python -m json.tool site/experiments.json > /dev/null
           node -e 'const fs=require("node:fs"),path=require("node:path"); const base="site/experimentos/voz-texto"; for(const page of ["index.html","piper-lab.html"]){const html=fs.readFileSync(path.join(base,page),"utf8"); for(const found of html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)){const target=path.join(base,found[1]); if(!fs.existsSync(target))throw new Error(page+" missing "+found[1]);}} const catalog=JSON.parse(fs.readFileSync("site/experiments.json","utf8")); const item=catalog.find(x=>x.slug==="voz-texto"); if(!item||item.demo!=="./experimentos/voz-texto/"||item.status!=="in-progress")throw new Error("Voice experiment catalog entry is invalid");'
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - name: Deploy Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

@@ -155,10 +155,12 @@ En la ejecución anterior hubo tres excepciones numéricas tras el primer fragme
 
 La demo pública se distribuye por GitHub Pages desde `site/experimentos/voz-texto/`.
 
-- Catálogo: https://fran1599.github.io/laboratorio-client-side-processing/
-- Voz ↔ texto: https://fran1599.github.io/laboratorio-client-side-processing/experimentos/voz-texto/
-- Laboratorio Piper: https://fran1599.github.io/laboratorio-client-side-processing/experimentos/voz-texto/piper-lab.html
+- Catálogo: https://fran1599.github.io/laboratorio-client-side-processing/site/
+- Voz ↔ texto: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/
+- Laboratorio Piper: https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html
 
 La versión 0.1.10 añade `Claude · candidata 8` al selector de prosodia de la herramienta principal. El mismo perfil permanece en el laboratorio para experimentación.
 
 Esta publicación amplía las pruebas entre dispositivos. No significa que se haya validado la ausencia de transmisión de contenido, operación offline, ni STT en hardware distinto. Evitar contenido sensible durante la validación de tráfico. GitHub Pages sirve archivos estáticos; modelos y dependencias se descargan de terceros.
+
+**Nota:** en la configuración de Pages desde rama raíz, las rutas públicas contienen `/site/`; si se pasa a despliegue por artefacto GitHub Actions, deberán actualizarse.

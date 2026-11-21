@@ -14,5 +14,13 @@
     "status": "limited",
     "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/distrito-luz",
     "demo": "./experimentos/distrito-luz/"
+  },
+  {
+    "slug": "guia-destiny-2",
+    "title": "Destiny 2 — guía interactiva de Equilibrio",
+    "description": "Prototipo móvil y PC de guía paso a paso: 28 pasos, modo rápido/detallado, encuentros, enlaces por paso y progreso local. Terminología española pendiente de validar.",
+    "status": "in-progress",
+    "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/guia-destiny-2",
+    "demo": "./experimentos/guia-destiny-2/"
   }
 ]

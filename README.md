@@ -11,7 +11,7 @@ Exploraciones reproducibles de tecnologías que procesan información **en el na
 | Estado | Prueba | Propósito | Acceso |
 | --- | --- | --- | --- |
 | En curso | [Voz ↔ texto](experiments/voz-texto/README.md) | Probar Whisper y Piper, reproducción progresiva y prosodia. | [Documentación](experiments/voz-texto/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/) · [Laboratorio Piper](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html) |
-| Con limitaciones | [Distrito Luz](experiments/distrito-luz/README.md) | Medir el rendimiento de un videojuego Canvas 2D en móviles. | [Documentación](experiments/distrito-luz/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/distrito-luz/) |
+| En curso | [Guía de Equilibrio — Destiny 2](experiments/guia-destiny-2/README.md) | Probar navegación paso a paso para mazmorras, con glosario y progreso local. | [Documentación](experiments/guia-destiny-2/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/guia-destiny-2/) |\n| Con limitaciones | [Distrito Luz](experiments/distrito-luz/README.md) | Medir el rendimiento de un videojuego Canvas 2D en móviles. | [Documentación](experiments/distrito-luz/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/distrito-luz/) |
 
 Cada experimento comienza con enlaces de retorno a este índice y un índice de sus secciones.
 

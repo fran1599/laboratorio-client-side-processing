@@ -47,6 +47,16 @@ Referencias **consultadas** para la síntesis original de las mecánicas:
 
 **No** se publicó una traducción íntegra de las guías ni se copiaron sus imágenes/diagramas. No hay autorización verificada para republicar obras ajenas. Los nombres españoles de enemigos, efectos y objetos se consideran provisionales salvo validación específica dentro del juego o con manifestaciones localizadas de Bungie. Se conserva una referencia inglesa para consulta. Las dinámicas del juego pueden cambiar.
 
+## Referencias visuales y mapas (revisión 0.2)
+
+- El **paso 11**, correspondiente a la bahía de carga y sus tres fusibles, incluye un **esquema SVG original** de orientación. Indica un fusible entre las puertas inclinadas centrales y otros dos a ambos lados del pasillo del fondo. No es una captura del videojuego ni un plano a escala.
+- Se añadieron fichas de identificación contextual para rejillas, puertas, paneles, trampillas, consolas, plataformas, orbes y bobinas de arco a partir del paso 9 y a lo largo de los encuentros de Harrow y Sere.
+- Las fichas contienen pistas breves de identificación y enlaces a las **capturas reales en su artículo original**: [Shacknews](https://www.shacknews.com/article/147168/how-to-complete-the-equilibrium-dungeon-in-destiny-2). En algunos casos se remite a [Vaexil](https://destiny2.vaexil.tv/guides/dungeons/equilibrium), que es principalmente textual.
+- El acceso «Ver mapas esquemáticos» remite a [ThePsychDr](https://thepsychdr.com/destiny/dungeons/equilibrium), cuya página ofrece esquemas generales y de encuentros. Son diagramas conceptuales y no mapas tridimensionales ni ubicaciones exactas.
+- No se descargan, incrustan ni redistribuyen imágenes de terceros. Los enlaces externos se abren a pedido del usuario en otra pestaña.
+- **Limitación:** el enlace lleva a la página de referencia, donde se debe localizar la sección indicada; todavía no hay enlaces a cada imagen individual ni recursos cartográficos georreferenciados.
+- Se conserva la misma clave de `localStorage` (`equilibrio-guia-v01`) y los mismos identificadores de paso para no perder el avance del prototipo anterior.
+
 ## Datos y conectividad
 
 La lógica de la guía se ejecuta en el navegador. `localStorage` guarda únicamente el paso activo, el estado de casillas y el modo de lectura. No hay solicitudes programadas a APIs de terceros ni analítica de uso. Cargar el sitio desde GitHub Pages requiere red y genera solicitudes normales al host. Abrir enlaces de fuentes externas sí contacta esos sitios. El modo sin conexión **no está validado**. Las imágenes de terceros no se cargan automáticamente.

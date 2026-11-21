@@ -18,4 +18,13 @@ for(const id of ["stageSelect","tocOpen","modeBtn","stepDone","prevBtn","nextBtn
 assert.ok(!/<script\s+src=/.test(source),"Unexpected remote scripts");
 assert.ok(!/<link[^>]+href=["']https?:/i.test(source),"Unexpected external stylesheet");
 assert.ok(!/\bfetch\s*\(/.test(inline[1][1]),"Unexpected automatic network request");
+const step11=data.steps[10];
+assert.equal(step11.id,"t3","Step 11 must remain the hangar fuse puzzle");
+assert.match(step11.action,/tres fusibles/i,"Step 11 must describe the 3 fuses");
+assert.ok(source.includes('id="visualReference"'),"Contextual visual panel is missing");
+assert.ok(source.includes('id="fuseIllustration"'),"Original fuse diagram is missing");
+assert.ok(source.includes("renderVisual(item)"),"Visual resources are not rendered");
+assert.ok(source.includes("thepsychdr.com/destiny/dungeons/equilibrium"),"Schematic map link missing");
+assert.ok(source.includes("shacknews.com/article/147168"),"Screenshot source link missing");
+assert.ok(source.includes('equilibrio-guia-v01'),"Old progress key must remain stable");
 console.log("Guía Equilibrio: schema, files and JavaScript syntax OK.");

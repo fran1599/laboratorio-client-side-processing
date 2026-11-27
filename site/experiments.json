@@ -22,5 +22,13 @@
     "status": "in-progress",
     "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/guia-destiny-2",
     "demo": "./experimentos/guia-destiny-2/"
+  },
+  {
+    "slug": "rider-tecnico",
+    "title": "Rider visual — editor de escenario",
+    "description": "Editor de planta y necesidades técnicas para agrupaciones no convencionales: posiciones, entradas de sonido y exportación JSON/PDF. Validación móvil real pendiente.",
+    "status": "in-progress",
+    "source": "https://github.com/fran1599/laboratorio-client-side-processing/tree/main/experiments/rider-tecnico",
+    "demo": "./experimentos/rider-tecnico/"
   }
 ]

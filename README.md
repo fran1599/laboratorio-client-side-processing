@@ -12,6 +12,7 @@ Exploraciones reproducibles de tecnologías que procesan información **en el na
 | --- | --- | --- | --- |
 | En curso | [Voz ↔ texto](experiments/voz-texto/README.md) | Probar Whisper y Piper, reproducción progresiva y prosodia. | [Documentación](experiments/voz-texto/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/) · [Laboratorio Piper](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/voz-texto/piper-lab.html) |
 | En curso | [Guía de Equilibrio — Destiny 2](experiments/guia-destiny-2/README.md) | Probar navegación paso a paso para mazmorras, con glosario y progreso local. | [Documentación](experiments/guia-destiny-2/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/guia-destiny-2/) |\n| Con limitaciones | [Distrito Luz](experiments/distrito-luz/README.md) | Medir el rendimiento de un videojuego Canvas 2D en móviles. | [Documentación](experiments/distrito-luz/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/distrito-luz/) |
+| En curso | [Rider visual](experiments/rider-tecnico/README.md) | Crear plantas y riders técnicos para agrupaciones no convencionales. | [Documentación](experiments/rider-tecnico/README.md) · [Demo](https://fran1599.github.io/laboratorio-client-side-processing/site/experimentos/rider-tecnico/) |
 
 Cada experimento comienza con enlaces de retorno a este índice y un índice de sus secciones.
 
